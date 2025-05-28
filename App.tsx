@@ -1,10 +1,10 @@
-// src/App.tsx – Student Ranking (desktop full‑width layout)
+// src/App.tsx – Student Ranking (centered with 20% side gutters)
 // React + TailwindCSS 3.x
 // ---------------------------------------------------------------------------
-//  • Stretches across the full viewport width (no max‑w wrapper)
-//  • Two equal columns on desktop; stacks to one column on tablets/mobiles
-//  • Wider cards (24 rem+) with ample padding for readability
-//  • Drag‑and‑drop logic unchanged
+//  • Columns sit in a container that takes 60% of the viewport width on desktop,
+//    leaving roughly 20% gutter on each side (auto‑centered).
+//  • Stacks to single column on tablets/mobiles.
+//  • Drag‑and‑drop + styling unchanged.
 // ---------------------------------------------------------------------------
 import { useState } from "react";
 
@@ -43,62 +43,64 @@ export default function App() {
         Student Rankings
       </h1>
 
-      {/* Full‑width two‑column grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
-        {/* Companies column */}
-        <section
-          onDragOver={allowDrop}
-          onDrop={dropToAvailable}
-          className="w-full rounded-xl border border-slate-500/60 bg-slate-800/25 p-10"
-        >
-          <h2 className="mb-8 text-3xl font-semibold tracking-wide">Companies</h2>
-          <ul className="space-y-3">
-            {available.map((c) => (
-              <li
-                key={c}
-                draggable
-                onDragStart={(e) => dragData(e, c)}
-                className="cursor-grab rounded-md border border-white/40 px-5 py-2 text-lg hover:border-white/60 active:opacity-70"
-              >
-                {c}
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {/* Ranking column */}
-        <section
-          onDragOver={allowDrop}
-          onDrop={dropToRanking}
-          className="w-full rounded-xl border border-slate-500/60 bg-slate-800/25 p-10 flex flex-col"
-        >
-          <h2 className="mb-8 text-3xl font-semibold tracking-wide">Your Ranking</h2>
-
-          {ranking.length === 0 ? (
-            <p className="italic text-slate-400 text-lg">Drag companies here</p>
-          ) : (
-            <ol className="space-y-3">
-              {ranking.map((c, i) => (
+      {/* Centered container that uses 60% of viewport width on large screens */}
+      <div className="mx-auto w-full lg:w-[60%]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
+          {/* Companies column */}
+          <section
+            onDragOver={allowDrop}
+            onDrop={dropToAvailable}
+            className="w-full rounded-xl border border-slate-500/60 bg-slate-800/25 p-10"
+          >
+            <h2 className="mb-8 text-3xl font-semibold tracking-wide">Companies</h2>
+            <ul className="space-y-3 text-lg">
+              {available.map((c) => (
                 <li
                   key={c}
                   draggable
                   onDragStart={(e) => dragData(e, c)}
-                  className="cursor-grab rounded-md border border-white/40 px-5 py-2 text-lg hover:border-white/60 active:opacity-70"
+                  className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70"
                 >
-                  {i + 1}. {c}
+                  {c}
                 </li>
               ))}
-            </ol>
-          )}
+            </ul>
+          </section>
 
-          <button
-            onClick={submit}
-            disabled={ranking.length === 0}
-            className="mt-auto w-full rounded-md bg-indigo-600 px-5 py-3 text-lg font-semibold hover:bg-indigo-500 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          {/* Ranking column */}
+          <section
+            onDragOver={allowDrop}
+            onDrop={dropToRanking}
+            className="w-full rounded-xl border border-slate-500/60 bg-slate-800/25 p-10 flex flex-col"
           >
-            Submit Ranking
-          </button>
-        </section>
+            <h2 className="mb-8 text-3xl font-semibold tracking-wide">Your Ranking</h2>
+
+            {ranking.length === 0 ? (
+              <p className="italic text-slate-400 text-lg">Drag companies here</p>
+            ) : (
+              <ol className="space-y-3 text-lg">
+                {ranking.map((c, i) => (
+                  <li
+                    key={c}
+                    draggable
+                    onDragStart={(e) => dragData(e, c)}
+                    className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70"
+                  >
+                    {i + 1}. {c}
+                  </li>
+                ))}
+              </ol>
+            )}
+
+            <button
+              onClick={submit}
+              disabled={ranking.length === 0}
+              className="mt-auto w-full rounded-md bg-indigo-600 px-5 py-3 text-lg font-semibold hover:bg-indigo-500 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              Submit Ranking
+            </button>
+          </section>
+        </div>
       </div>
     </main>
   );
