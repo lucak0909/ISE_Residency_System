@@ -6,7 +6,7 @@ import StudentDashboard  from './pages/S_Dashboard';
 import StudentRanking1   from './pages/S_Ranking1';
 import StudentRanking2   from './pages/S_Ranking2';
 
-//import PartnerDashboard  from './pages/P_Dashboard.tsx';
+import PartnerDashboard  from './pages/P_Dashboard.tsx';
 import PartnerRanking    from './pages/P_Ranking.tsx';
 
 //import AdminDashboard  from './pages/A_Dashboard.tsx';
@@ -25,8 +25,7 @@ export default function Router() {
                 <Route path="/StudentRanking2"  element={<StudentRanking2  />} />
 
                 {/* partner area */}
-                {/*
-                <Route path="/PartnerDashboard" element={<PartnerDashboard />} />*/}
+                <Route path="/PartnerDashboard" element={<PartnerDashboard />} />
                 <Route path="/PartnerRanking"  element={<PartnerRanking  />} />
 
 
