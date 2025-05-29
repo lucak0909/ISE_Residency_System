@@ -15,7 +15,7 @@ export default function App() {
   async function handleLogin() {
     // TODO: replace console.log with your API call, e.g. fetch('/api/login', …)
     console.log('Logging in with', { email, password });
-    navigate('/dashboard');
+    navigate('/StudentDashboard');
   }
 
   async function handleSignUp() {
