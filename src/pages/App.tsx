@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function App() {
+
+  const navigate = useNavigate();
 
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
@@ -12,6 +15,7 @@ export default function App() {
   async function handleLogin() {
     // TODO: replace console.log with your API call, e.g. fetch('/api/login', …)
     console.log('Logging in with', { email, password });
+    navigate('/dashboard');
   }
 
   async function handleSignUp() {
