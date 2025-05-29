@@ -23,17 +23,17 @@ export default function StudentDashboard() {
                 <h2 className="text-2xl font-bold tracking-tight">Menu</h2>
 
                 <nav className="flex flex-1 flex-col gap-4 text-lg">
-                    <NavLink to="/dashboard"
+                    <NavLink to="/StudentDashboard"
                              className="rounded-md bg-indigo-600/20 px-3 py-2 font-semibold ring-2 ring-indigo-600/30">
                         Student Dashboard
                     </NavLink>
 
-                    <NavLink to="/ranking1"
+                    <NavLink to="/StudentRanking1"
                              className="rounded-md px-3 py-2 hover:bg-slate-700/50">
                         Initial Ranking
                     </NavLink>
 
-                    <NavLink to="/ranking2"
+                    <NavLink to="/StudentRanking2"
                              className="rounded-md px-3 py-2 hover:bg-slate-700/50">
                         Post-Interview Ranking
                     </NavLink>
