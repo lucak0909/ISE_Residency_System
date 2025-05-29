@@ -6,8 +6,8 @@ import StudentDashboard  from './pages/S_Dashboard';
 import StudentRanking1   from './pages/S_Ranking1';
 import StudentRanking2   from './pages/S_Ranking2';
 
-import PartnerDashboard  from './pages/P_Dashboard.tsx';
-import PartnerRanking    from './pages/P_Ranking.tsx';
+import PartnerDashboard  from './pages/P_Dashboard';
+import PartnerRanking    from './pages/P_Ranking';
 
 //import AdminDashboard  from './pages/A_Dashboard.tsx';
 //import AdminDatabase    from './pages/A_Database.tsx';
@@ -36,8 +36,8 @@ export default function Router() {
                 */}
 
                 {/* shortcuts / fall-backs */}
-                <Route path="/"         element={<Navigate to="/PartnerRanking" />} />
-                <Route path="*"         element={<Navigate to="/PartnerRanking" />} />
+                <Route path="/"         element={<Navigate to="/StudentDashboard" />} />
+                <Route path="*"         element={<Navigate to="/StudentDashboard" />} />
             </Routes>
         </BrowserRouter>
     );
