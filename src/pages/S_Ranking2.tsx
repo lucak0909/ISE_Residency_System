@@ -55,7 +55,7 @@ export default function StudentRanking1() {
 
                 <nav className="flex flex-1 flex-col gap-4 text-lg">
                     <NavLink to="/StudentDashboard"
-                             className="rounded-md bg-indigo-600/20 px-3 py-2 font-semibold ring-2 ring-indigo-600/30">
+                             className="rounded-md px-3 py-2 hover:bg-slate-700/50">
                         Student Dashboard
                     </NavLink>
 
@@ -65,7 +65,7 @@ export default function StudentRanking1() {
                     </NavLink>
 
                     <NavLink to="/StudentRanking2"
-                             className="rounded-md px-3 py-2 hover:bg-slate-700/50">
+                             className="rounded-md bg-indigo-600/20 px-3 py-2 font-semibold ring-2 ring-indigo-600/30">
                         Post-Interview Ranking
                     </NavLink>
 

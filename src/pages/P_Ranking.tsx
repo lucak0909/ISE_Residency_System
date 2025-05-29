@@ -55,12 +55,12 @@ export default function PartnerRanking() {
 
                 <nav className="flex flex-1 flex-col gap-4 text-lg">
                     <NavLink to="/PartnerDashboard"
-                             className="rounded-md bg-indigo-600/20 px-3 py-2 font-semibold ring-2 ring-indigo-600/30">
+                             className="rounded-md px-3 py-2 hover:bg-slate-700/50">
                         Partner Dashboard
                     </NavLink>
 
                     <NavLink to="/PartnerRanking"
-                             className="rounded-md px-3 py-2 hover:bg-slate-700/50">
+                             className="rounded-md bg-indigo-600/20 px-3 py-2 font-semibold ring-2 ring-indigo-600/30">
                         Interviewee Ranking
                     </NavLink>
 
