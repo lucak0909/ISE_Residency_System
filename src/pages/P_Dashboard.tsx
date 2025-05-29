@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import {useState} from "react";
+import {NavLink} from "react-router-dom";
 
 interface Job {
     company: string;
@@ -30,7 +30,7 @@ export default function PartnerDashboard() {
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        const newJob: Job = { company, title, description, email, salary, location };
+        const newJob: Job = {company, title, description, email, salary, location};
         // TODO: persist to backend
         setJobs((j) => [...j, newJob]);
         alert("Job listing created (mock)");
@@ -40,7 +40,8 @@ export default function PartnerDashboard() {
     return (
         <div className="flex min-h-screen w-full bg-slate-900 text-white">
             {/* Navigation */}
-            <aside className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6 backdrop-blur-xl">
+            <aside
+                className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6 backdrop-blur-xl">
                 <h2 className="text-2xl font-bold tracking-tight">Menu</h2>
 
                 <nav className="flex flex-1 flex-col gap-4 text-lg">
@@ -74,7 +75,8 @@ export default function PartnerDashboard() {
                 </h1>
 
                 {/* Job form */}
-                <section className="mx-auto w-full max-w-3xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-10">
+                <section
+                    className="mx-auto w-full max-w-3xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-10">
                     <h2 className="mb-6 text-2xl font-semibold">Create Job Listing</h2>
 
                     <form className="grid grid-cols-1 gap-6" onSubmit={handleSubmit}>
@@ -182,7 +184,8 @@ export default function PartnerDashboard() {
 
                 {/* Listings preview */}
                 {jobs.length > 0 && (
-                    <section className="mx-auto mt-14 w-full max-w-5xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-10">
+                    <section
+                        className="mx-auto mt-14 w-full max-w-5xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-10">
                         <h2 className="mb-6 text-2xl font-semibold">Your Listings</h2>
                         <ul className="space-y-6">
                             {jobs.map((job, idx) => (

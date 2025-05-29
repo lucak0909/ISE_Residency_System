@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { NavLink } from 'react-router-dom';
+import {useState} from "react";
+import {NavLink} from 'react-router-dom';
 
 
 export default function StudentDashboard() {
@@ -12,7 +12,7 @@ export default function StudentDashboard() {
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         // TODO: send FormData / JSON to backend
-        console.log({ cvFile, linkedin, github });
+        console.log({cvFile, linkedin, github});
         alert("Profile saved (mock)");
     }
 
@@ -20,7 +20,8 @@ export default function StudentDashboard() {
     return (
         <div className="flex min-h-screen w-full bg-slate-900 text-white">
             {/*  Navigation bar  */}
-            <aside className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6 backdrop-blur-xl">
+            <aside
+                className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6 backdrop-blur-xl">
                 <h2 className="text-2xl font-bold tracking-tight">Menu</h2>
 
                 <nav className="flex flex-1 flex-col gap-4 text-lg">
@@ -55,7 +56,8 @@ export default function StudentDashboard() {
                 </h1>
 
                 {/* QCA display */}
-                <section className="mx-auto mb-12 w-full max-w-xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-8 text-center">
+                <section
+                    className="mx-auto mb-12 w-full max-w-xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-8 text-center">
                     <h2 className="mb-3 text-2xl font-semibold">Your QCA</h2>
                     <p className="text-5xl font-bold text-indigo-400">{mockQCA.toFixed(2)}</p>
                     {/* TODO: replace with live value from DB */}

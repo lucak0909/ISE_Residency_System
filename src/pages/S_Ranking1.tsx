@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { NavLink } from 'react-router-dom';
+import {useState} from "react";
+import {NavLink} from 'react-router-dom';
 
-const ALL_COMPANIES = Array.from({ length: 25 }, (_, i) => `Company ${i + 1}`);
+const ALL_COMPANIES = Array.from({length: 25}, (_, i) => `Company ${i + 1}`);
 
 export default function StudentRanking1() {
     const [available, setAvailable] = useState<string[]>(ALL_COMPANIES);
@@ -50,7 +50,8 @@ export default function StudentRanking1() {
 
     return (
         <div className="flex min-h-screen w-full bg-slate-900 text-white">
-            <aside className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6 backdrop-blur-xl">
+            <aside
+                className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6 backdrop-blur-xl">
                 <h2 className="text-2xl font-bold tracking-tight">Menu</h2>
 
                 <nav className="flex flex-1 flex-col gap-4 text-lg">
