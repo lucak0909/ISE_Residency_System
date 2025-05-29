@@ -12,6 +12,12 @@ export default function Login() {
 
   return (
       <div className="flex min-h-screen items-center justify-center bg-slate-900 text-white">
+
+        <div className="absolute top-16 text-center">
+          <h1 className="text-6xl font-bold tracking-tight">ISE Jobs Board</h1>
+          <h1>____________________________________________</h1>
+        </div>
+
         <form
             onSubmit={handleSubmit}
             className="w-full max-w-xs space-y-4 rounded-2xl bg-slate-800 p-8 shadow-lg"
