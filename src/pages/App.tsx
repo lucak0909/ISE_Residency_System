@@ -83,10 +83,10 @@ export default function App() {
     }
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-slate-900 text-white">
-            <div className="absolute top-16 text-center">
-                <h1 className="text-6xl font-bold tracking-tight">ISE Jobs Board</h1>
-                <h1>____________________________________________</h1>
+        <div className="min-h-screen bg-[#0e1126] flex flex-col items-center justify-center px-4 py-10">
+            <div className="mb-6 text-center">
+                <h1 className="text-5xl font-bold text-white mb-2">ISE Jobs Board</h1>
+                <hr className="border-t-2 border-gray-400 w-64 mx-auto" />
             </div>
 
             <form
