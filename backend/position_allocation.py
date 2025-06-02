@@ -1,18 +1,33 @@
+import os
 from dotenv import load_dotenv
 from supabase import create_client
-import os
 
-load_dotenv()
-SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
-SUPABASE_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+env_path = os.path.join(project_root, '.env')
+load_dotenv(dotenv_path=env_path)
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://dummy.supabase.io")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "dummy_key")
+
+# Debug
+print("SUPABASE_URL:", SUPABASE_URL)
+print("SUPABASE_KEY is set:", bool(SUPABASE_KEY))
+
+supabase = None
+if SUPABASE_URL and SUPABASE_KEY and "dummy" not in SUPABASE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+else:
+    print("⚠️ Supabase client not initialized — running in test mode or dummy key")
 
 def get_interview_pairs():
+    if supabase is None:
+        return []
     result = supabase.table("InterviewAllocated").select("StudentID", "CompanyID").execute()
     return result.data
 
 def get_student_rank(student_id, company_id):
+    if supabase is None:
+        return []
     result = supabase.table("StudentInterviewRank")\
         .select("Rank")\
         .eq("StudentID", student_id)\
@@ -21,6 +36,8 @@ def get_student_rank(student_id, company_id):
     return result.data[0]["Rank"] if result.data else None
 
 def get_company_rank(company_id, student_id):
+    if supabase is None:
+        return []
     result = supabase.table("CompanyInterviewRank")\
         .select("Rank")\
         .eq("ComoanyID", company_id)\
@@ -29,14 +46,20 @@ def get_company_rank(company_id, student_id):
     return result.data[0]["Rank"] if result.data else None
 
 def get_student_qca(student_id):
+    if supabase is None:
+        return []
     result = supabase.table("Student").select("QCA").eq("StudentID", student_id).execute()
     return float(result.data[0]["QCA"]) if result.data else None
 
 def get_company_position(company_id):
+    if supabase is None:
+        return []
     result = supabase.table("Position").select("PositionID").eq("CompanyID", company_id).limit(1).execute()
     return result.data[0]["PositionID"] if result.data else None
 
 def run_final_match():
+    if supabase is None:
+        return []
     interview_pairs = get_interview_pairs()
     matches = []
 
