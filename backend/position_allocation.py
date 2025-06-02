@@ -17,7 +17,7 @@ supabase = None
 if SUPABASE_URL and SUPABASE_KEY and "dummy" not in SUPABASE_KEY:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 else:
-    print("⚠️ Supabase client not initialized — running in test mode or dummy key")
+    print("Supabase client not initialized — running in test mode or dummy key")
 
 def get_interview_pairs():
     if supabase is None:

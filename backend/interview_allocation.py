@@ -20,7 +20,7 @@ supabase = None
 if SUPABASE_URL and SUPABASE_KEY and "dummy" not in SUPABASE_KEY:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 else:
-    print("⚠️ Supabase client not initialized — running in test mode or dummy key")
+    print("Supabase client not initialized — running in test mode or dummy key")
 
 import h2
 
@@ -28,7 +28,7 @@ import h2
 
 def get_sorted_students():
     if supabase is None:
-        print("⚠️ Supabase is not initialized. Returning empty student list.")
+        print("Supabase is not initialized. Returning empty student list.")
         return []
     result = supabase.table("Student").select("StudentID, QCA").order("QCA", desc=True).execute()
     return result.data
