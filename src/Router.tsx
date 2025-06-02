@@ -36,8 +36,8 @@ export default function Router() {
                 */}
 
                 {/* shortcuts / fall-backs */}
-                <Route path="/"         element={<Navigate to="/StudentDashboard" />} />
-                <Route path="*"         element={<Navigate to="/StudentDashboard" />} />
+                <Route path="/"         element={<Navigate to="/Login" />} />
+                <Route path="*"         element={<Navigate to="/Login" />} />
             </Routes>
         </BrowserRouter>
     );
