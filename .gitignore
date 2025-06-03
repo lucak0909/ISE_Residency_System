@@ -25,3 +25,6 @@ dist-ssr
 
 #Hide API shtuff
 backend/.env
+
+.env*
+backend/.env*
