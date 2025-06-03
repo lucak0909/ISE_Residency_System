@@ -112,4 +112,3 @@ if __name__ == "__main__":
     final = run_final_match()
     for match in final:
         print(f"Student {match['StudentID']} matched with Company {match['CompanyID']} (Score : {match['CombinedScore']})")
-
