@@ -5,22 +5,18 @@ import { supabase } from '../helper/supabaseClient';
 import bcrypt from 'bcryptjs';
 
 /**
- * Login / Sign‑up component
- * --------------------------------------------------------------
- * • Users never choose their role. Role is inferred from e‑mail.
- *     – student  →  8‑digit ID@studentmail.ul.ie  → ID = first 8 digits.
- *     – company  →  e‑mail in WhiteList table     → ID = random 8‑digit int.
- * • Enum in DB is `usertype` (admin | student | company) – values lower‑case.
- * • Passwords are handled by Supabase Auth **and** stored (bcrypt‑hashed) in
- *   our own `User.PasswordHash` column for legacy queries.
- * --------------------------------------------------------------
+ * AuthPage – Signup / Login
+ * ------------------------------------------------------------------
+ * Company flow:
+ *   1. User signs up with e‑mail/password/full name.
+ *   2. After signup prompt asks for Company Name and saves it to Company table.
+ * Student flow remains unchanged.
+ * ------------------------------------------------------------------
  */
 export default function AuthPage() {
-  /* ------------------------------------------------------------------
-   * Local state
-   * ----------------------------------------------------------------*/
   const navigate = useNavigate();
 
+  /* ----------------------------- State ----------------------------*/
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -28,28 +24,25 @@ export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  /* ------------------------------------------------------------------
-   * Helpers
-   * ----------------------------------------------------------------*/
+  /* ------------------------ Helpers ------------------------------*/
   const studentRegex = /^\d{8}@studentmail\.ul\.ie$/i;
+  const trimmedEmail = email.trim().toLowerCase();
+  const isStudentEmail = studentRegex.test(trimmedEmail);
 
-  function nameParts(name: string) {
+  const splitName = (name: string) => {
     const [first = '', ...rest] = name.trim().split(/\s+/);
     return { first, last: rest.join(' ') };
-  }
+  };
 
-  async function generateUniqueID(): Promise<number> {
-    // Generate a random 8‑digit integer that does not already exist in User.ID
+  const generateUniqueID = async (): Promise<number> => {
     while (true) {
-      const candidate = Math.floor(1_000_0000 + Math.random() * 9_000_0000);
-      const { data } = await supabase.from('User').select('ID').eq('ID', candidate).maybeSingle();
-      if (!data) return candidate;
+      const id = Math.floor(1_000_0000 + Math.random() * 9_000_0000);
+      const { data } = await supabase.from('User').select('ID').eq('ID', id).maybeSingle();
+      if (!data) return id;
     }
-  }
+  };
 
-  /* ------------------------------------------------------------------
-   * Sign‑up
-   * ----------------------------------------------------------------*/
+  /* -------------------------- Sign‑up ----------------------------*/
   const handleSignUp = async () => {
     if (password !== confirm) {
       alert('Passwords do not match');
@@ -57,40 +50,28 @@ export default function AuthPage() {
     }
 
     setLoading(true);
-    const emailLower = email.trim().toLowerCase();
-
     try {
       let role: 'student' | 'company';
       let id: number;
 
-      // ----- Role inference -----
-      if (studentRegex.test(emailLower)) {
+      if (isStudentEmail) {
         role = 'student';
-        id = parseInt(emailLower.substring(0, 8), 10);
+        id = parseInt(trimmedEmail.substring(0, 8), 10);
       } else {
-        const { data: white } = await supabase
-            .from('WhiteList')
-            .select('Email')
-            .eq('Email', emailLower)
-            .maybeSingle();
-        if (!white) throw new Error('Email is not authorised as a Company/Partner');
+        const { data: white } = await supabase.from('WhiteList').select('Email').eq('Email', trimmedEmail).maybeSingle();
+        if (!white) throw new Error('Email not authorised for company signup');
         role = 'company';
         id = await generateUniqueID();
       }
 
-      /* ---------- Supabase Auth ---------- */
-      const { error: authErr } = await supabase.auth.signUp({ email: emailLower, password });
+      const { error: authErr } = await supabase.auth.signUp({ email: trimmedEmail, password });
       if (authErr) throw authErr;
 
-      // BCrypt hash for local User table (optional but mirrors legacy schema)
       const passwordHash = bcrypt.hashSync(password, 10);
-
-      /* ---------- Domain inserts ---------- */
-      const { first, last } = nameParts(fullName);
-
+      const { first, last } = splitName(fullName);
       const { error: userErr } = await supabase.from('User').insert({
         ID: id,
-        Email: emailLower,
+        Email: trimmedEmail,
         Username: id.toString(),
         FirstName: first,
         Surname: last,
@@ -102,42 +83,45 @@ export default function AuthPage() {
       if (role === 'student') {
         const { error } = await supabase.from('Student').insert({ StudentID: id });
         if (error) throw error;
+        alert('Student account created!');
+        navigate('/StudentDashboard');
       } else {
-        const { error } = await supabase.from('Company').insert({ CompanyID: id, Email: emailLower });
+        let companyName = '';
+        while (!companyName) {
+          companyName = window.prompt('Enter your Company Name to finish signup:', '')?.trim() || '';
+          if (!companyName) alert('Company Name is required.');
+        }
+        const { error } = await supabase.from('Company').insert({
+          CompanyID: id,
+          Email: trimmedEmail,
+          CompanyName: companyName,
+        });
         if (error) throw error;
+        alert('Company account created!');
+        navigate('/PartnerDashboard');
       }
 
-      alert('Account created! Check your inbox to confirm your email.');
       setIsSignUp(false);
       setEmail('');
       setPassword('');
       setConfirm('');
       setFullName('');
     } catch (err: any) {
-      alert(err.message || 'Sign‑up failed');
+      alert(err.message || 'Signup failed');
     } finally {
       setLoading(false);
     }
   };
 
-  /* ------------------------------------------------------------------
-   * Login
-   * ----------------------------------------------------------------*/
+  /* --------------------------- Login -----------------------------*/
   const handleLogin = async () => {
     setLoading(true);
     try {
-      const { error: authErr } = await supabase.auth.signInWithPassword({ email, password });
+      const { error: authErr } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
       if (authErr) throw authErr;
-
-      const { data: user, error } = await supabase
-          .from('User')
-          .select('Role')
-          .eq('Email', email.toLowerCase())
-          .maybeSingle();
-      if (error) throw error;
-
-      if (user?.Role === 'student') navigate('/StudentDashboard');
-      else if (user?.Role === 'company') navigate('/PartnerDashboard');
+      const { data: userRow } = await supabase.from('User').select('Role').eq('Email', trimmedEmail).maybeSingle();
+      if (userRow?.Role === 'student') navigate('/StudentDashboard');
+      else if (userRow?.Role === 'company') navigate('/PartnerDashboard');
       else navigate('/');
     } catch (err: any) {
       alert(err.message || 'Login failed');
@@ -146,26 +130,16 @@ export default function AuthPage() {
     }
   };
 
-  /* ------------------------------------------------------------------
-   * Dispatch
-   * ----------------------------------------------------------------*/
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     isSignUp ? handleSignUp() : handleLogin();
   };
 
-  /* ------------------------------------------------------------------
-   * UI
-   * ----------------------------------------------------------------*/
+  /* --------------------------- JSX -------------------------------*/
   return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-900 text-white p-4">
-        <form
-            onSubmit={handleSubmit}
-            className="w-full max-w-sm space-y-4 rounded-2xl bg-slate-800 p-8 shadow-lg"
-        >
-          <h1 className="text-center text-2xl font-semibold">
-            {isSignUp ? 'Create an account' : 'Sign in'}
-          </h1>
+      <div className="flex min-h-screen items-center justify-center bg-slate-900 p-4 text-white">
+        <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-2xl bg-slate-800 p-8 shadow-lg">
+          <h1 className="text-center text-2xl font-semibold">{isSignUp ? 'Create an account' : 'Sign in'}</h1>
 
           {isSignUp && (
               <input
@@ -219,22 +193,14 @@ export default function AuthPage() {
             {isSignUp ? (
                 <>
                   Already have an account?{' '}
-                  <button
-                      type="button"
-                      className="font-medium text-indigo-400 hover:underline"
-                      onClick={() => setIsSignUp(false)}
-                  >
+                  <button type="button" className="font-medium text-indigo-400 hover:underline" onClick={() => setIsSignUp(false)}>
                     Log in
                   </button>
                 </>
             ) : (
                 <>
                   New here?{' '}
-                  <button
-                      type="button"
-                      className="font-medium text-indigo-400 hover:underline"
-                      onClick={() => setIsSignUp(true)}
-                  >
+                  <button type="button" className="font-medium text-indigo-400 hover:underline" onClick={() => setIsSignUp(true)}>
                     Create one
                   </button>
                 </>
