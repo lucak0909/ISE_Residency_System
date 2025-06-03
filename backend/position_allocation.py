@@ -40,7 +40,7 @@ def get_company_rank(company_id, student_id):
         return []
     result = supabase.table("CompanyInterviewRank")\
         .select("Rank")\
-        .eq("ComoanyID", company_id)\
+        .eq("CompanyID", company_id)\
         .eq("StudentID", student_id)\
         .execute()
     return result.data[0]["Rank"] if result.data else None
@@ -60,6 +60,7 @@ def get_company_position(company_id):
 def run_final_match():
     if supabase is None:
         return []
+
     interview_pairs = get_interview_pairs()
     matches = []
 
@@ -73,45 +74,42 @@ def run_final_match():
         if s_rank is not None and c_rank is not None:
             combined_score = s_rank + c_rank
             qca = get_student_qca(student_id)
-            position_id = get_company_position(company_id)
 
             matches.append({
                 "StudentID": student_id,
                 "CompanyID": company_id,
-                "PositionID": position_id,
                 "CombinedScore": combined_score,
                 "QCA": qca
             })
 
-    #Sort: lowest combined score, then highest QCA
+    # Sort: lowest combined score, then highest QCA
     matches.sort(key=lambda m: (m["CombinedScore"], -m["QCA"]))
 
     assigned_students = set()
-    assigned_companies = set()
+    company_assignments = {}  # company_id: number of assigned students
     final_matches = []
 
     for match in matches:
         sid = match["StudentID"]
         cid = match["CompanyID"]
-        pid = match["PositionID"]
 
-        if sid not in assigned_students and pid not in assigned_companies:
-            #Allocate
+        if sid not in assigned_students and company_assignments.get(cid, 0) < 2:
             final_matches.append(match)
             assigned_students.add(sid)
-            assigned_companies.add(pid)
+            company_assignments[cid] = company_assignments.get(cid, 0) + 1
 
-            #Insert into FinalMatches table
+            # Insert into FinalMatches table
             supabase.table("FinalMatches").insert({
                 "StudentID": sid,
                 "CompanyID": cid,
-                "PositionID": pid,
                 "CombinedScore": match["CombinedScore"]
             }).execute()
 
     return final_matches
 
+
 if __name__ == "__main__":
     final = run_final_match()
     for match in final:
-        print(f"Student {match['StudentID']} matched with Company {match['Company']} (Score : {match['CombinedScore']})")
+        print(f"Student {match['StudentID']} matched with Company {match['CompanyID']} (Score : {match['CombinedScore']})")
+
