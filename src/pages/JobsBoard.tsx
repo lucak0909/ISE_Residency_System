@@ -3,9 +3,23 @@ import { NavLink } from 'react-router-dom';
 // @ts-ignore
 import { supabase } from '../helper/supabaseClient';
 
+// Define the Job interface
+interface Job {
+    title: string;
+    salary: string;
+    location: string;
+    daysInPerson: string;
+    description: string;
+    round: string;
+    email: string;
+    company: string;
+    address: string;
+    residency: string;
+}
+
 function JobsBoard() {
-    const [jobs, setJobs] = useState([]);
-    const [selectedJob, setSelectedJob] = useState(null);
+    const [jobs, setJobs] = useState<Job[]>([]);
+    const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
     useEffect(() => {
         async function fetchJobs() {
@@ -22,8 +36,8 @@ function JobsBoard() {
 
             if (error) {
                 console.error('Error fetching jobs:', error);
-            } else {
-                const formattedJobs = data.map((entry) => ({
+            } else if (data) {
+                const formattedJobs: Job[] = data.map((entry) => ({
                     title: entry.Title,
                     salary: entry.Salary,
                     location: entry.Location,
