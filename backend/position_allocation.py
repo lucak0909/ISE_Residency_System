@@ -1,47 +1,23 @@
 import os
-import re
 from dotenv import load_dotenv
 from supabase import create_client
 
-# Load environment variables from .env file
-backend_env = os.path.join(os.path.dirname(__file__), '.env')
-project_env = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+env_path = os.path.join(project_root, '.env')
+load_dotenv(dotenv_path=env_path)
 
-# Try to load from backend directory first, then project root
-if os.path.exists(backend_env):
-    load_dotenv(dotenv_path=backend_env)
-    print(f"Loaded .env from {backend_env}")
-elif os.path.exists(project_env):
-    load_dotenv(dotenv_path=project_env)
-    print(f"Loaded .env from {project_env}")
-else:
-    print("No .env file found")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://dummy.supabase.io")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "dummy_key")
 
-# Get Supabase credentials from environment variables with VITE_ prefix
-SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
-SUPABASE_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
-
-# Remove quotes if present (sometimes .env parsers keep the quotes)
-if SUPABASE_URL and SUPABASE_URL.startswith('"') and SUPABASE_URL.endswith('"'):
-    SUPABASE_URL = SUPABASE_URL[1:-1]
-if SUPABASE_KEY and SUPABASE_KEY.startswith('"') and SUPABASE_KEY.endswith('"'):
-    SUPABASE_KEY = SUPABASE_KEY[1:-1]
-
-# Debug output
+# Debug
 print("SUPABASE_URL:", SUPABASE_URL)
 print("SUPABASE_KEY is set:", bool(SUPABASE_KEY))
-print("SUPABASE_KEY first 10 chars:", SUPABASE_KEY[:10] + "..." if SUPABASE_KEY else "None")
 
-# Initialize Supabase client
 supabase = None
-if SUPABASE_URL and SUPABASE_KEY:
-    try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("Supabase client initialized successfully")
-    except Exception as e:
-        print(f"Error initializing Supabase client: {e}")
+if SUPABASE_URL and SUPABASE_KEY and "dummy" not in SUPABASE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 else:
-    print("Supabase client not initialized — URL or key missing")
+    print("Supabase client not initialized — running in test mode or dummy key")
 
 def get_interview_pairs():
     if supabase is None:
@@ -135,45 +111,7 @@ def run_final_match():
 
     return final_matches
 
-def get_company_rankings():
-    if supabase is None:
-        print("Supabase is not initialized. Returning empty company rankings.")
-        return []
-    result = supabase.table("CompanyRank").select("*").execute()
-    return result.data
-
-def get_student_rankings():
-    if supabase is None:
-        print("Supabase is not initialized. Returning empty student rankings.")
-        return []
-    result = supabase.table("StudentRank2").select("*").execute()
-    return result.data
-
-def allocate_positions():
-    # Implementation of position allocation algorithm
-    # This is a placeholder - you'll need to implement the actual algorithm
-    if supabase is None:
-        print("Cannot allocate positions: Supabase client not initialized")
-        return {}
-
-    print("Starting position allocation process...")
-
-    # Get company and student rankings
-    company_rankings = get_company_rankings()
-    student_rankings = get_student_rankings()
-
-    # Clear any existing allocations
-    supabase.table("PositionAllocated").delete().neq("StudentID", 0).execute()
-
-    # Your allocation algorithm here
-    # ...
-
-    # Return the allocations
-    return {"status": "Position allocation completed"}
-
 if __name__ == "__main__":
-    if supabase:
-        result = allocate_positions()
-        print(result)
-    else:
-        print("Cannot allocate positions: Supabase client not initialized")
+    final = run_final_match()
+    for match in final:
+        print(f"Student {match['StudentID']} matched with Company {match['Company']} (Score : {match['CombinedScore']})")
