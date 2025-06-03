@@ -13,10 +13,15 @@ interface CompanyData {
 interface CompanyWithID {
     id: number;
     name: string;
+    residencyPeriod: string; // Add residency period
 }
+
+// Define residency period options
+const RESIDENCY_PERIODS = ["All", "R1", "R1+R2", "R2", "R3", "R4", "R5"];
 
 export default function StudentRanking1() {
     const [available, setAvailable] = useState<string[]>([]);
+    const [allCompanies, setAllCompanies] = useState<CompanyWithID[]>([]); // Store all companies with their data
     const [ranking, setRanking] = useState<string[]>([]);
     const [dragged, setDragged] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -25,6 +30,7 @@ export default function StudentRanking1() {
     const [studentID, setStudentID] = useState<number | null>(null);
     const [companyMap, setCompanyMap] = useState<Map<string, number>>(new Map());
     const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [selectedResidency, setSelectedResidency] = useState<string>("All"); // Default to "All"
 
     // Fetch student ID on component mount
     useEffect(() => {
@@ -32,16 +38,16 @@ export default function StudentRanking1() {
             try {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user?.email) throw new Error("User not authenticated");
-                
+
                 const { data: userData, error: userError } = await supabase
                     .from('User')
                     .select('ID')
                     .eq('Email', user.email.toLowerCase())
                     .maybeSingle();
-                
+
                 if (userError) throw userError;
                 if (!userData) throw new Error("User not found");
-                
+
                 setStudentID(userData.ID);
             } catch (err: any) {
                 console.error('Error fetching student ID:', err);
@@ -59,56 +65,79 @@ export default function StudentRanking1() {
                 // First attempt: Try to get companies that have positions
                 let { data, error } = await supabase
                     .from('Position')
-                    .select('CompanyID, Company(CompanyID, CompanyName)')
+                    .select('CompanyID, Company(CompanyID, CompanyName), ResidencyTerm') // Changed from ResidencyPeriod to ResidencyTerm
                     .order('CompanyID');
-                
+
                 if (error) throw error;
-                
+
                 // If we got data with the join query
                 if (data && data.length > 0) {
                     // Create a map of company names to IDs
                     const newCompanyMap = new Map<string, number>();
-                    
-                    // Extract unique company names and their IDs
-                    const companyNames = [...new Set(
-                        data
-                            .filter(item => item.Company?.CompanyName && item.Company?.CompanyID) 
-                            .map(item => {
-                                const name = item.Company.CompanyName as string;
-                                const id = item.Company.CompanyID as number;
-                                newCompanyMap.set(name, id);
-                                return name;
-                            })
-                    )];
-                    
+
+                    // Extract unique company names and their IDs with residency periods
+                    const companies = data
+                        .filter(item => item.Company?.CompanyName && item.Company?.CompanyID)
+                        .map(item => ({
+                            id: item.Company.CompanyID as number,
+                            name: item.Company.CompanyName as string,
+                            residencyPeriod: item.ResidencyTerm || "Unknown" // Changed from ResidencyPeriod to ResidencyTerm
+                        }));
+
+                    // Remove duplicates (a company might have multiple positions)
+                    const uniqueCompanies = Array.from(
+                        new Map(companies.map(item => [item.name, item])).values()
+                    );
+
+                    setAllCompanies(uniqueCompanies);
+
+                    // Create company map for ID lookup
+                    uniqueCompanies.forEach(company => {
+                        newCompanyMap.set(company.name, company.id);
+                    });
+
                     setCompanyMap(newCompanyMap);
-                    setAvailable(companyNames);
+
+                    // Set available companies based on the default filter (All)
+                    setAvailable(uniqueCompanies.map(company => company.name));
                 } else {
                     // Fallback: Try to get all companies directly
                     const { data: companyData, error: companyError } = await supabase
                         .from('Company')
                         .select('CompanyID, CompanyName');
-                    
+
                     if (companyError) throw companyError;
-                    
+
                     if (companyData && companyData.length > 0) {
                         // Create a map of company names to IDs
                         const newCompanyMap = new Map<string, number>();
-                        
-                        const companyNames = companyData
+
+                        const companies = companyData
                             .filter(company => company.CompanyName && company.CompanyID)
-                            .map(company => {
-                                const name = company.CompanyName as string;
-                                const id = company.CompanyID as number;
-                                newCompanyMap.set(name, id);
-                                return name;
-                            });
-                        
+                            .map(company => ({
+                                id: company.CompanyID as number,
+                                name: company.CompanyName as string,
+                                residencyPeriod: "Unknown" // Default when we don't have residency data
+                            }));
+
+                        setAllCompanies(companies);
+
+                        companies.forEach(company => {
+                            newCompanyMap.set(company.name, company.id);
+                        });
+
                         setCompanyMap(newCompanyMap);
-                        setAvailable(companyNames);
+                        setAvailable(companies.map(company => company.name));
                     } else {
                         // If still no data, use mock data
-                        setAvailable(Array.from({ length: 5 }, (_, i) => `Company ${i + 1}`));
+                        const mockCompanies = Array.from({ length: 5 }, (_, i) => ({
+                            id: i + 1,
+                            name: `Company ${i + 1}`,
+                            residencyPeriod: RESIDENCY_PERIODS[Math.floor(Math.random() * (RESIDENCY_PERIODS.length - 1)) + 1]
+                        }));
+
+                        setAllCompanies(mockCompanies);
+                        setAvailable(mockCompanies.map(company => company.name));
                         setError("No companies found. Using sample data.");
                     }
                 }
@@ -116,7 +145,14 @@ export default function StudentRanking1() {
                 console.error('Error fetching companies:', err);
                 setError(err.message || "Failed to load companies");
                 // Fallback to mock data
-                setAvailable(Array.from({ length: 5 }, (_, i) => `Company ${i + 1}`));
+                const mockCompanies = Array.from({ length: 5 }, (_, i) => ({
+                    id: i + 1,
+                    name: `Company ${i + 1}`,
+                    residencyPeriod: RESIDENCY_PERIODS[Math.floor(Math.random() * (RESIDENCY_PERIODS.length - 1)) + 1]
+                }));
+
+                setAllCompanies(mockCompanies);
+                setAvailable(mockCompanies.map(company => company.name));
             } finally {
                 setLoading(false);
             }
@@ -124,6 +160,26 @@ export default function StudentRanking1() {
 
         fetchCompanies();
     }, []);
+
+    // Filter companies when residency period changes
+    useEffect(() => {
+        if (selectedResidency === "All") {
+            // Show all companies
+            setAvailable(allCompanies
+                .map(company => company.name)
+                // Filter out companies that are already in the ranking
+                .filter(name => !ranking.includes(name))
+            );
+        } else {
+            // Filter companies by selected residency period
+            setAvailable(allCompanies
+                .filter(company => company.residencyPeriod === selectedResidency)
+                .map(company => company.name)
+                // Filter out companies that are already in the ranking
+                .filter(name => !ranking.includes(name))
+            );
+        }
+    }, [selectedResidency, allCompanies, ranking]);
 
     const dragData = (e: React.DragEvent, name: string) => {
         e.dataTransfer.setData("text/plain", name);
@@ -148,7 +204,15 @@ export default function StudentRanking1() {
         if (!name) return;
 
         setRanking((r) => r.filter((n) => n !== name));
-        if (!available.includes(name)) setAvailable((a) => [...a, name].sort());
+
+        // When dropping back to available, check if it matches the current filter
+        const company = allCompanies.find(c => c.name === name);
+        if (company && (selectedResidency === "All" || company.residencyPeriod === selectedResidency)) {
+            if (!available.includes(name)) {
+                setAvailable((a) => [...a, name].sort());
+            }
+        }
+        
         setDragged(null);
     };
 
@@ -262,7 +326,26 @@ export default function StudentRanking1() {
                 <h1 className="mb-3 text-center text-4xl font-extrabold tracking-tight md:text-6xl">
                     Student Rankings
                 </h1>
-                <p className="mb-16 mt-2 text-center text-gray-400 font-bold tracking-tight md:text-2xl">(Pre-Interview)</p>
+                <p className="mb-8 mt-2 text-center text-gray-400 font-bold tracking-tight md:text-2xl">(Pre-Interview)</p>
+
+                {/* Residency Period Dropdown */}
+                <div className="mx-auto mb-8 max-w-md">
+                    <label htmlFor="residency-select" className="block mb-2 text-lg font-medium text-white">
+                        Filter by Residency Period:
+                    </label>
+                    <select
+                        id="residency-select"
+                        value={selectedResidency}
+                        onChange={(e) => setSelectedResidency(e.target.value)}
+                        className="w-full rounded-md border border-white/30 bg-slate-700/40 p-3 text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        {RESIDENCY_PERIODS.map(period => (
+                            <option key={period} value={period}>
+                                {period}
+                            </option>
+                        ))}
+                    </select>
+                </div>
 
                 {error && (
                     <div className="mx-auto mb-8 max-w-2xl rounded-md bg-red-500/20 p-4 text-center text-red-200">
