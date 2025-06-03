@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+// @ts-ignore
 import { supabase } from '../helper/supabaseClient';
 import bcrypt from 'bcryptjs';
 

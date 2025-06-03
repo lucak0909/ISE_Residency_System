@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import Login             from './pages/App';
+import JobsBoard         from './pages/JobsBoard';
 
 import StudentDashboard  from './pages/S_Dashboard';
 import StudentRanking1   from './pages/S_Ranking1';
@@ -18,6 +19,7 @@ export default function Router() {
             <Routes>
                 {/* public */}
                 <Route path="/login" element={<Login />} />
+                <Route path="/JobsBoard" element={<JobsBoard/>}/>
 
                 {/* student area */}
                 <Route path="/StudentDashboard" element={<StudentDashboard />} />
@@ -27,7 +29,6 @@ export default function Router() {
                 {/* partner area */}
                 <Route path="/PartnerDashboard" element={<PartnerDashboard />} />
                 <Route path="/PartnerRanking"  element={<PartnerRanking  />} />
-
 
                 {/* admin area */}
                 {/*
