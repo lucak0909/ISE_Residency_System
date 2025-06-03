@@ -6,6 +6,7 @@ import { supabase } from '../helper/supabaseClient';
 function JobsBoard() {
     const [jobs, setJobs] = useState([]);
     const [selectedJob, setSelectedJob] = useState(null);
+    //THIS IS TEST FOR MERGE
 
     useEffect(() => {
         async function fetchJobs() {
