@@ -1,23 +1,47 @@
 import os
+import re
 from dotenv import load_dotenv
 from supabase import create_client
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-env_path = os.path.join(project_root, '.env')
-load_dotenv(dotenv_path=env_path)
+# Load environment variables from .env file
+backend_env = os.path.join(os.path.dirname(__file__), '.env')
+project_env = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://dummy.supabase.io")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "dummy_key")
+# Try to load from backend directory first, then project root
+if os.path.exists(backend_env):
+    load_dotenv(dotenv_path=backend_env)
+    print(f"Loaded .env from {backend_env}")
+elif os.path.exists(project_env):
+    load_dotenv(dotenv_path=project_env)
+    print(f"Loaded .env from {project_env}")
+else:
+    print("No .env file found")
 
-# Debug
+# Get Supabase credentials from environment variables with VITE_ prefix
+SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
+SUPABASE_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
+
+# Remove quotes if present (sometimes .env parsers keep the quotes)
+if SUPABASE_URL and SUPABASE_URL.startswith('"') and SUPABASE_URL.endswith('"'):
+    SUPABASE_URL = SUPABASE_URL[1:-1]
+if SUPABASE_KEY and SUPABASE_KEY.startswith('"') and SUPABASE_KEY.endswith('"'):
+    SUPABASE_KEY = SUPABASE_KEY[1:-1]
+
+# Debug output
 print("SUPABASE_URL:", SUPABASE_URL)
 print("SUPABASE_KEY is set:", bool(SUPABASE_KEY))
+print("SUPABASE_KEY first 10 chars:", SUPABASE_KEY[:10] + "..." if SUPABASE_KEY else "None")
 
+# Initialize Supabase client
 supabase = None
-if SUPABASE_URL and SUPABASE_KEY and "dummy" not in SUPABASE_KEY:
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("Supabase client initialized successfully")
+    except Exception as e:
+        print(f"Error initializing Supabase client: {e}")
 else:
-    print("Supabase client not initialized — running in test mode or dummy key")
+    print("Supabase client not initialized — URL or key missing")
 
 def get_interview_pairs():
     if supabase is None:
@@ -112,6 +136,9 @@ def run_final_match():
     return final_matches
 
 if __name__ == "__main__":
-    final = run_final_match()
-    for match in final:
-        print(f"Student {match['StudentID']} matched with Company {match['Company']} (Score : {match['CombinedScore']})")
+    if supabase:
+        final = run_final_match()
+        for match in final:
+            print(f"Student {match['StudentID']} matched with Company {match['CompanyID']} (Score: {match['CombinedScore']})")
+    else:
+        print("Cannot run final match: Supabase client not initialized")
