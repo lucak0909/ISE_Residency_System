@@ -101,7 +101,7 @@ def allocate_interviews():
             company_id = pref["CompanyID"]
             current_count = allocation_counts.get(company_id, 0)
 
-            if current_count < 3:
+            if current_count < 6:
                 # Allocate
                 supabase.table("InterviewAllocated").insert({
                     "StudentID": student_id,
