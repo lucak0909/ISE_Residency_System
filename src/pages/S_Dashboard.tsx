@@ -2,6 +2,77 @@ import {useState, useEffect} from "react";
 import {NavLink} from 'react-router-dom';
 import {supabase} from "../helper/supabaseClient";
 
+function FinalMatchDisplay() {
+    const [matchedCompany, setMatchedCompany] = useState<{ companyName: string, position: string | null } | null>(null);
+    const [loadingMatch, setLoadingMatch] = useState(true);
+
+    useEffect(() => {
+        async function fetchMatchData() {
+            try {
+                // Get current user's email
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user?.email) return;
+                
+                // Get student ID from User table
+                const { data: userData } = await supabase
+                    .from('User')
+                    .select('ID')
+                    .eq('Email', user.email.toLowerCase())
+                    .maybeSingle();
+                
+                if (!userData) return;
+                
+                // Get matched company from FinalMatches table
+                const { data: matchData } = await supabase
+                    .from('FinalMatches')
+                    .select(`
+                        Company:CompanyID (
+                            CompanyName
+                        )
+                    `)
+                    .eq('StudentID', userData.ID)
+                    .maybeSingle();
+                
+                // Get position title if available
+                const { data: positionData } = await supabase
+                    .from('Position')
+                    .select('Title')
+                    .eq('CompanyID', matchData?.CompanyID)
+                    .maybeSingle();
+                
+                if (matchData?.Company) {
+                    setMatchedCompany({
+                        companyName: matchData.Company.CompanyName || 'Unknown Company',
+                        position: positionData?.Title || null
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching match data:', error);
+            } finally {
+                setLoadingMatch(false);
+            }
+        }
+        
+        fetchMatchData();
+    }, []);
+
+    if (loadingMatch) {
+        return <p className="text-lg text-slate-300">Loading your match information...</p>;
+    }
+
+    return matchedCompany ? (
+        <div className="space-y-2">
+            <p className="text-3xl font-bold text-indigo-400">{matchedCompany.companyName}</p>
+            {matchedCompany.position && (
+                <p className="text-xl text-slate-300">{matchedCompany.position}</p>
+            )}
+            <p className="mt-4 text-sm text-slate-400">Congratulations on your residency placement!</p>
+        </div>
+    ) : (
+        <p className="text-lg text-slate-300">No residency match has been assigned yet.</p>
+    );
+}
+
 export default function StudentDashboard() {
     /*  local component state  */
     const [cvFile, setCvFile] = useState<File | null>(null);
@@ -119,6 +190,12 @@ export default function StudentDashboard() {
                             {qca !== null ? qca.toFixed(2) : "N/A"}
                         </p>
                     )}
+                </section>
+
+                {/* Final Match Display */}
+                <section className="mx-auto mb-12 w-full max-w-xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-8 text-center">
+                    <h2 className="mb-3 text-2xl font-semibold">Your Residency Match</h2>
+                    <FinalMatchDisplay />
                 </section>
 
                 {/* Profile form */}
