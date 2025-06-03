@@ -20,10 +20,10 @@ interface CompanyWithID {
 const RESIDENCY_PERIODS = ["All", "R1", "R1+R2", "R2", "R3", "R4", "R5"];
 
 export default function StudentRanking1() {
-    const [available, setAvailable] = useState<string[]>([]);
+    const [available, setAvailable] = useState<CompanyWithID[]>([]);
     const [allCompanies, setAllCompanies] = useState<CompanyWithID[]>([]); // Store all companies with their data
-    const [ranking, setRanking] = useState<string[]>([]);
-    const [dragged, setDragged] = useState<string | null>(null);
+    const [ranking, setRanking] = useState<CompanyWithID[]>([]);
+    const [dragged, setDragged] = useState<CompanyWithID | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -99,7 +99,7 @@ export default function StudentRanking1() {
                     setCompanyMap(newCompanyMap);
 
                     // Set available companies based on the default filter (All)
-                    setAvailable(uniqueCompanies.map(company => company.name));
+                    setAvailable(uniqueCompanies);
                 } else {
                     // Fallback: Try to get all companies directly
                     const { data: companyData, error: companyError } = await supabase
@@ -127,7 +127,7 @@ export default function StudentRanking1() {
                         });
 
                         setCompanyMap(newCompanyMap);
-                        setAvailable(companies.map(company => company.name));
+                        setAvailable(companies);
                     } else {
                         // If still no data, use mock data
                         const mockCompanies = Array.from({ length: 5 }, (_, i) => ({
@@ -137,7 +137,7 @@ export default function StudentRanking1() {
                         }));
 
                         setAllCompanies(mockCompanies);
-                        setAvailable(mockCompanies.map(company => company.name));
+                        setAvailable(mockCompanies);
                         setError("No companies found. Using sample data.");
                     }
                 }
@@ -152,7 +152,7 @@ export default function StudentRanking1() {
                 }));
 
                 setAllCompanies(mockCompanies);
-                setAvailable(mockCompanies.map(company => company.name));
+                setAvailable(mockCompanies);
             } finally {
                 setLoading(false);
             }
@@ -166,61 +166,54 @@ export default function StudentRanking1() {
         if (selectedResidency === "All") {
             // Show all companies
             setAvailable(allCompanies
-                .map(company => company.name)
-                // Filter out companies that are already in the ranking
-                .filter(name => !ranking.includes(name))
+                .filter(company => !ranking.some(rankedCompany => rankedCompany.id === company.id))
             );
         } else {
             // Filter companies by selected residency period
             setAvailable(allCompanies
                 .filter(company => company.residencyPeriod === selectedResidency)
-                .map(company => company.name)
-                // Filter out companies that are already in the ranking
-                .filter(name => !ranking.includes(name))
+                .filter(company => !ranking.some(rankedCompany => rankedCompany.id === company.id))
             );
         }
     }, [selectedResidency, allCompanies, ranking]);
 
-    const dragData = (e: React.DragEvent, name: string) => {
-        e.dataTransfer.setData("text/plain", name);
-        setDragged(name);
+    const dragData = (e: React.DragEvent, company: CompanyWithID) => {
+        e.dataTransfer.setData("application/json", JSON.stringify(company));
+        setDragged(company);
     };
 
     const allowDrop = (e: React.DragEvent) => e.preventDefault();
 
     const dropToRanking = (e: React.DragEvent) => {
         e.preventDefault();
-        const name = e.dataTransfer.getData("text/plain");
-        if (!name || ranking.includes(name)) return;
+        const companyData = e.dataTransfer.getData("application/json");
+        if (!companyData) return;
+        const company = JSON.parse(companyData) as CompanyWithID;
+        if (ranking.some(c => c.id === company.id)) return;
 
-        setAvailable((a) => a.filter((n) => n !== name));
-        setRanking((r) => [...r, name]);
+        setAvailable((a) => a.filter((c) => c.id !== company.id));
+        setRanking((r) => [...r, company]);
         setDragged(null);
     };
 
     const dropToAvailable = (e: React.DragEvent) => {
         e.preventDefault();
-        const name = e.dataTransfer.getData("text/plain");
-        if (!name) return;
+        const companyData = e.dataTransfer.getData("application/json");
+        if (!companyData) return;
+        const company = JSON.parse(companyData) as CompanyWithID;
 
-        setRanking((r) => r.filter((n) => n !== name));
-
-        // When dropping back to available, check if it matches the current filter
-        const company = allCompanies.find(c => c.name === name);
-        if (company && (selectedResidency === "All" || company.residencyPeriod === selectedResidency)) {
-            if (!available.includes(name)) {
-                setAvailable((a) => [...a, name].sort());
-            }
+        setRanking((r) => r.filter((c) => c.id !== company.id));
+        if (!available.some(c => c.id === company.id)) {
+            setAvailable((a) => [...a, company].sort((a, b) => a.name.localeCompare(b.name)));
         }
-        
         setDragged(null);
     };
 
-    const handleReorder = (targetName: string) => {
-        if (!dragged || dragged === targetName) return;
+    const handleReorder = (targetCompany: CompanyWithID) => {
+        if (!dragged || dragged.id === targetCompany.id) return;
         setRanking((r) => {
-            const next = r.filter((n) => n !== dragged);
-            const idx = next.indexOf(targetName);
+            const next = r.filter((c) => c.id !== dragged.id);
+            const idx = next.findIndex(c => c.id === targetCompany.id);
             next.splice(idx, 0, dragged);
             return next;
         });
@@ -251,21 +244,11 @@ export default function StudentRanking1() {
             if (deleteError) throw deleteError;
 
             // Prepare the rankings data
-            const rankingsData = ranking.map((companyName, index) => {
-                const companyID = companyMap.get(companyName);
-                
-                // If we don't have a company ID (e.g., for mock data), skip this entry
-                if (!companyID) {
-                    console.warn(`No company ID found for ${companyName}`);
-                    return null;
-                }
-                
-                return {
-                    StudentID: studentID,
-                    CompanyID: companyID,
-                    Rank: index + 1 // Ranks start at 1
-                };
-            }).filter(item => item !== null); // Remove any null entries
+            const rankingsData = ranking.map((company, index) => ({
+                StudentID: studentID,
+                CompanyID: company.id,
+                Rank: index + 1 // Ranks start at 1
+            }));
             
             // Insert the new rankings
             if (rankingsData.length > 0) {
@@ -371,14 +354,15 @@ export default function StudentRanking1() {
                                 <p className="text-lg italic text-slate-400">Loading companies...</p>
                             ) : available.length > 0 ? (
                                 <ul className="space-y-3 text-lg">
-                                    {available.map((c) => (
+                                    {available.map((company) => (
                                         <li
-                                            key={c}
+                                            key={company.id}
                                             draggable
-                                            onDragStart={(e) => dragData(e, c)}
-                                            className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70"
+                                            onDragStart={(e) => dragData(e, company)}
+                                            className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70 flex justify-between items-center"
                                         >
-                                            {c}
+                                            <span>{company.name}</span>
+                                            <span className="text-sm font-semibold text-indigo-300 ml-2">{company.residencyPeriod}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -398,16 +382,17 @@ export default function StudentRanking1() {
                                 <p className="text-lg italic text-slate-400">Drag companies here</p>
                             ) : (
                                 <ol className="space-y-3 text-lg">
-                                    {ranking.map((c, i) => (
+                                    {ranking.map((company, i) => (
                                         <li
-                                            key={c}
+                                            key={company.id}
                                             draggable
-                                            onDragStart={(e) => dragData(e, c)}
+                                            onDragStart={(e) => dragData(e, company)}
                                             onDragOver={allowDrop}
-                                            onDrop={() => handleReorder(c)}
-                                            className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70"
+                                            onDrop={() => handleReorder(company)}
+                                            className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70 flex justify-between items-center"
                                         >
-                                            {i + 1}. {c}
+                                            <span>{i + 1}. {company.name}</span>
+                                            <span className="text-sm font-semibold text-indigo-300 ml-2">{company.residencyPeriod}</span>
                                         </li>
                                     ))}
                                 </ol>
