@@ -1,13 +1,61 @@
-import {useState} from "react";
+import {useState, useEffect} from "react";
 import {NavLink} from 'react-router-dom';
-
+import {supabase} from "../helper/supabaseClient";
 
 export default function StudentDashboard() {
     /*  local component state  */
     const [cvFile, setCvFile] = useState<File | null>(null);
     const [linkedin, setLinkedin] = useState("");
     const [github, setGithub] = useState("");
-    const mockQCA = 3.75; // TODO: fetch from DB
+    const [qca, setQca] = useState<number | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    // Fetch student QCA on component mount
+    useEffect(() => {
+        async function fetchStudentData() {
+            try {
+                setLoading(true);
+
+                // Get the current user
+                const {data: {user}} = await supabase.auth.getUser();
+
+                if (user) {
+                    // First get the user's ID from the User table
+                    const {data: userData, error: userError} = await supabase
+                        .from('User')
+                        .select('ID')
+                        .eq('Email', user.email)
+                        .single();
+
+                    if (userError) {
+                        console.error('Error fetching user data:', userError);
+                        return;
+                    }
+
+                    if (userData) {
+                        // Now fetch the student record using the ID from User table
+                        const {data: studentData, error: studentError} = await supabase
+                            .from('Student')
+                            .select('QCA')
+                            .eq('StudentID', userData.ID)
+                            .single();
+
+                        if (studentError) {
+                            console.error('Error fetching student data:', studentError);
+                        } else if (studentData) {
+                            setQca(studentData.QCA);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchStudentData();
+    }, []);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -64,8 +112,13 @@ export default function StudentDashboard() {
                 <section
                     className="mx-auto mb-12 w-full max-w-xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-8 text-center">
                     <h2 className="mb-3 text-2xl font-semibold">Your QCA</h2>
-                    <p className="text-5xl font-bold text-indigo-400">{mockQCA.toFixed(2)}</p>
-                    {/* TODO: replace with live value from DB */}
+                    {loading ? (
+                        <p className="text-5xl font-bold text-slate-400">Loading...</p>
+                    ) : (
+                        <p className="text-5xl font-bold text-indigo-400">
+                            {qca !== null ? qca.toFixed(2) : "N/A"}
+                        </p>
+                    )}
                 </section>
 
                 {/* Profile form */}
