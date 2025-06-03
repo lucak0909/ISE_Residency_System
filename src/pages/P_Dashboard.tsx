@@ -10,6 +10,7 @@ interface JobPreview {
     salary: string;
     location: string;
     daysInPerson: number;
+    residencyTerm: string; // Updated interface to include residencyTerm
 }
 
 export default function PartnerDashboard() {
@@ -22,6 +23,7 @@ export default function PartnerDashboard() {
     const [salary, setSalary] = useState('');
     const [location, setLocation] = useState('');
     const [daysInPerson, setDaysInPerson] = useState<number>(0);
+    const [residencyTerm, setResidencyTerm] = useState('R1'); // Add this new state
     const [loading, setLoading] = useState(false);
     const [jobsPreview, setJobsPreview] = useState<JobPreview[]>([]);
 
@@ -117,6 +119,7 @@ export default function PartnerDashboard() {
                 setSalary(data.Salary || '');
                 setLocation(data.Location || '');
                 setDaysInPerson(data.DaysInPerson || 0);
+                setResidencyTerm(data.ResidencyTerm || 'R1'); // Set residency term
                 
                 // Add to preview
                 setJobsPreview([{
@@ -126,7 +129,8 @@ export default function PartnerDashboard() {
                     email: data.Email || '',
                     salary: data.Salary || '',
                     location: data.Location || '',
-                    daysInPerson: data.DaysInPerson || 0
+                    daysInPerson: data.DaysInPerson || 0,
+                    residencyTerm: data.ResidencyTerm || 'R1' // Include residency term in preview
                 }]);
             }
         };
@@ -144,6 +148,7 @@ export default function PartnerDashboard() {
         setSalary('');
         setLocation('');
         setDaysInPerson(0);
+        setResidencyTerm('R1'); // Reset residency term
     };
 
     // Then modify the handleSubmit function to use upsert instead of insert
@@ -172,6 +177,7 @@ export default function PartnerDashboard() {
                     Description: description,
                     Email: contactEmail,
                     DaysInPerson: daysInPerson || null,
+                    ResidencyTerm: residencyTerm // Include residency term in upsert
                 }, {
                     onConflict: 'CompanyID',
                     returning: 'minimal'
@@ -192,7 +198,8 @@ export default function PartnerDashboard() {
                 email: contactEmail,
                 salary,
                 location,
-                daysInPerson
+                daysInPerson,
+                residencyTerm // Include residency term in preview
             }]);
 
             alert('Position updated successfully!');
@@ -268,6 +275,17 @@ export default function PartnerDashboard() {
                             <label className="font-medium" htmlFor="days">Days In Person (per week)</label>
                             <input id="days" type="number" min="0" max="7" value={daysInPerson} onChange={(e) => setDaysInPerson(Number(e.target.value))} className="rounded-md border border-white/30 bg-slate-700/40 p-3 outline-none focus:ring-2 focus:ring-indigo-500" />
                         </div>
+                        {/* Residency Term */}
+                        <div className="flex flex-col gap-2">
+                            <label className="font-medium" htmlFor="residencyTerm">Residency Term</label>
+                            <select id="residencyTerm" value={residencyTerm} onChange={(e) => setResidencyTerm(e.target.value)} className="rounded-md border border-white/30 bg-slate-700/40 p-3 outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="R1">R1</option>
+                                <option value="R1+R2">R1+R2</option>
+                                <option value="R3">R3</option>
+                                <option value="R4">R4</option>
+                                <option value="R5">R5</option>
+                            </select>
+                        </div>
                         <button type="submit" disabled={loading} className="w-full rounded-md bg-indigo-600 py-3 text-lg font-semibold hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-60">
                             {loading ? 'Saving…' : 'Create Listing'}
                         </button>
@@ -288,6 +306,7 @@ export default function PartnerDashboard() {
                                         <span>Email: {job.email}</span>
                                         <span>Salary: €{job.salary} / month</span>
                                         <span>Days In Person: {job.daysInPerson}</span>
+                                        <span>Residency Term: {job.residencyTerm}</span> {/* Display residency term */}
                                     </div>
                                 </li>
                             ))}
