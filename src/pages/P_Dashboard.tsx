@@ -27,26 +27,114 @@ export default function PartnerDashboard() {
 
     // ---------- Fetch CompanyID + CompanyName on mount ----------
     useEffect(() => {
-        (async () => {
-            const {
-                data: { user },
-            } = await supabase.auth.getUser();
-            if (!user?.email) return;
-            const { data: userRow } = await supabase
-                .from('User')
-                .select('ID')
-                .eq('Email', user.email.toLowerCase())
-                .maybeSingle();
-            if (!userRow) return;
-            setCompanyID(userRow.ID);
-            const { data: compRow } = await supabase
-                .from('Company')
-                .select('CompanyName')
-                .eq('CompanyID', userRow.ID)
-                .maybeSingle();
-            if (compRow) setCompanyName(compRow.CompanyName || '');
-        })();
+        const fetchCompanyData = async () => {
+            try {
+                // Get current user
+                const { data: authData, error: authError } = await supabase.auth.getUser();
+                
+                if (authError) {
+                    console.error('Auth error:', authError);
+                    return;
+                }
+                
+                if (!authData.user?.email) {
+                    console.error('No user email found');
+                    return;
+                }
+                
+                console.log('User email:', authData.user.email);
+                
+                // Get user record
+                const { data: userRow, error: userError } = await supabase
+                    .from('User')
+                    .select('ID')
+                    .eq('Email', authData.user.email.toLowerCase())
+                    .maybeSingle();
+                
+                if (userError) {
+                    console.error('User fetch error:', userError);
+                    return;
+                }
+                
+                if (!userRow) {
+                    console.error('No user found with email:', authData.user.email);
+                    return;
+                }
+                
+                console.log('User ID:', userRow.ID);
+                
+                // Get company record
+                const { data: compRow, error: compError } = await supabase
+                    .from('Company')
+                    .select('CompanyID, CompanyName')
+                    .eq('CompanyID', userRow.ID)
+                    .maybeSingle();
+                
+                if (compError) {
+                    console.error('Company fetch error:', compError);
+                    return;
+                }
+                
+                if (!compRow) {
+                    console.error('No company found with ID:', userRow.ID);
+                    return;
+                }
+                
+                console.log('Company data:', compRow);
+                
+                // Set state
+                setCompanyID(compRow.CompanyID);
+                setCompanyName(compRow.CompanyName || '');
+            } catch (err) {
+                console.error('Unexpected error:', err);
+            }
+        };
+        
+        fetchCompanyData();
     }, []);
+
+    // First, let's add a function to fetch existing positions
+    useEffect(() => {
+        const fetchExistingPosition = async () => {
+            if (!companyID) return;
+            
+            const { data, error } = await supabase
+                .from('Position')
+                .select('*')
+                .eq('CompanyID', companyID)
+                .maybeSingle();
+            
+            if (error) {
+                console.error('Error fetching position:', error);
+                return;
+            }
+            
+            if (data) {
+                // If a position already exists, populate the form with it
+                setTitle(data.Title || '');
+                setDescription(data.Description || '');
+                setContactEmail(data.Email || '');
+                setSalary(data.Salary || '');
+                setLocation(data.Location || '');
+                setDaysInPerson(data.DaysInPerson || 0);
+                
+                // Add to preview
+                setJobsPreview([{
+                    title: data.Title || '',
+                    company: companyName,
+                    description: data.Description || '',
+                    email: data.Email || '',
+                    salary: data.Salary || '',
+                    location: data.Location || '',
+                    daysInPerson: data.DaysInPerson || 0
+                }]);
+            }
+        };
+        
+        if (companyID) {
+            fetchExistingPosition();
+        }
+    }, [companyID, companyName]);
 
     // --------------------- Helpers ---------------------
     const resetForm = () => {
@@ -58,27 +146,59 @@ export default function PartnerDashboard() {
         setDaysInPerson(0);
     };
 
+    // Then modify the handleSubmit function to use upsert instead of insert
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!companyID) return alert('Company ID not loaded');
+
+        console.log('Submit clicked, companyID:', companyID);
+
+        if (!companyID) {
+            console.error('Company ID is null or undefined');
+            alert('Company ID not loaded. Please refresh the page and try again.');
+            return;
+        }
+
         setLoading(true);
         try {
-            const { error } = await supabase.from('Position').insert({
-                CompanyID: companyID,
-                Title: title,
-                Salary: salary,
-                Location: location,
-                Description: description,
-                Email: contactEmail,
-                DaysInPerson: daysInPerson || null,      });
-            if (error) throw error;
-            setJobsPreview((prev) => [
-                ...prev,
-                { title, company: companyName, description, email: contactEmail, salary, location, daysInPerson },
-            ]);
-            resetForm();
+            console.log('Attempting to upsert position with CompanyID:', companyID);
+
+            const { data, error } = await supabase
+                .from('Position')
+                .upsert({
+                    CompanyID: companyID,
+                    Title: title,
+                    Salary: salary,
+                    Location: location,
+                    Description: description,
+                    Email: contactEmail,
+                    DaysInPerson: daysInPerson || null,
+                }, {
+                    onConflict: 'CompanyID',
+                    returning: 'minimal'
+                });
+
+            if (error) {
+                console.error('Upsert error:', error);
+                throw error;
+            }
+
+            console.log('Position upserted successfully');
+
+            // Update the preview
+            setJobsPreview([{
+                title,
+                company: companyName,
+                description,
+                email: contactEmail,
+                salary,
+                location,
+                daysInPerson
+            }]);
+
+            alert('Position updated successfully!');
         } catch (err: any) {
-            alert(err.message || 'Could not create listing');
+            console.error('Error details:', err);
+            alert(err.message || 'Could not update listing');
         } finally {
             setLoading(false);
         }

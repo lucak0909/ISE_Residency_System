@@ -1,12 +1,73 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink } from 'react-router-dom';
+import { supabase } from '../helper/supabaseClient';
 
-const ALL_COMPANIES = Array.from({ length: 25 }, (_, i) => `Company ${i + 1}`);
+// This interface should match your actual database structure
+interface CompanyData {
+    CompanyID?: number;
+    CompanyName?: string;
+    // Add other fields that might be in your company table
+}
 
 export default function StudentRanking1() {
-    const [available, setAvailable] = useState<string[]>(ALL_COMPANIES);
+    const [available, setAvailable] = useState<string[]>([]);
     const [ranking, setRanking] = useState<string[]>([]);
     const [dragged, setDragged] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // Fetch companies from the database on component mount
+    useEffect(() => {
+        async function fetchCompanies() {
+            try {
+                // First attempt: Try to get companies that have positions
+                let { data, error } = await supabase
+                    .from('Position')
+                    .select('CompanyID, Company(CompanyName)')
+                    .order('CompanyID');
+                
+                if (error) throw error;
+                
+                // If we got data with the join query
+                if (data && data.length > 0) {
+                    // Extract unique company names
+                    const companyNames = [...new Set(
+                        data
+                            .filter(item => item.Company?.CompanyName) // Filter out any null values
+                            .map(item => item.Company.CompanyName as string)
+                    )];
+                    setAvailable(companyNames);
+                } else {
+                    // Fallback: Try to get all companies directly
+                    const { data: companyData, error: companyError } = await supabase
+                        .from('Company')
+                        .select('CompanyName');
+                    
+                    if (companyError) throw companyError;
+                    
+                    if (companyData && companyData.length > 0) {
+                        const companyNames = companyData
+                            .filter(company => company.CompanyName) // Filter out any null values
+                            .map(company => company.CompanyName as string);
+                        setAvailable(companyNames);
+                    } else {
+                        // If still no data, use mock data
+                        setAvailable(Array.from({ length: 5 }, (_, i) => `Company ${i + 1}`));
+                        setError("No companies found. Using sample data.");
+                    }
+                }
+            } catch (err: any) {
+                console.error('Error fetching companies:', err);
+                setError(err.message || "Failed to load companies");
+                // Fallback to mock data
+                setAvailable(Array.from({ length: 5 }, (_, i) => `Company ${i + 1}`));
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchCompanies();
+    }, []);
 
     const dragData = (e: React.DragEvent, name: string) => {
         e.dataTransfer.setData("text/plain", name);
@@ -84,6 +145,12 @@ export default function StudentRanking1() {
                 </h1>
                 <p className="mb-16 mt-2 text-center text-gray-400 font-bold tracking-tight md:text-2xl">(Pre-Interview)</p>
 
+                {error && (
+                    <div className="mx-auto mb-8 max-w-2xl rounded-md bg-red-500/20 p-4 text-center text-red-200">
+                        {error}
+                    </div>
+                )}
+
                 <div className="mx-auto w-full lg:w-[60%]">
                     <div className="grid grid-cols-1 gap-20 lg:grid-cols-2">
                         <section
@@ -92,18 +159,24 @@ export default function StudentRanking1() {
                             className="w-full rounded-xl border border-slate-500/60 bg-slate-800/25 p-10"
                         >
                             <h2 className="mb-8 text-3xl font-semibold tracking-wide">Companies</h2>
-                            <ul className="space-y-3 text-lg">
-                                {available.map((c) => (
-                                    <li
-                                        key={c}
-                                        draggable
-                                        onDragStart={(e) => dragData(e, c)}
-                                        className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70"
-                                    >
-                                        {c}
-                                    </li>
-                                ))}
-                            </ul>
+                            {loading ? (
+                                <p className="text-lg italic text-slate-400">Loading companies...</p>
+                            ) : available.length > 0 ? (
+                                <ul className="space-y-3 text-lg">
+                                    {available.map((c) => (
+                                        <li
+                                            key={c}
+                                            draggable
+                                            onDragStart={(e) => dragData(e, c)}
+                                            className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70"
+                                        >
+                                            {c}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-lg italic text-slate-400">No companies available</p>
+                            )}
                         </section>
 
                         <section
