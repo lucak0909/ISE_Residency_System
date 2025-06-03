@@ -2,6 +2,110 @@ import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { supabase } from '../helper/supabaseClient';
 
+function MatchedStudentsDisplay({ companyID }: { companyID: number | null }) {
+    const [matchedStudents, setMatchedStudents] = useState<Array<{
+        studentName: string,
+        studentEmail: string,
+        qca: number | null
+    }>>([]);
+    const [loadingMatches, setLoadingMatches] = useState(true);
+
+    useEffect(() => {
+        async function fetchMatchedStudents() {
+            if (!companyID) return;
+            
+            try {
+                setLoadingMatches(true);
+                
+                // First, get the student IDs from FinalMatches table
+                const { data: matchesData, error: matchesError } = await supabase
+                    .from('FinalMatches')
+                    .select('StudentID')
+                    .eq('CompanyID', companyID);
+                
+                if (matchesError) {
+                    console.error('Error fetching matches:', matchesError);
+                    return;
+                }
+                
+                if (!matchesData || matchesData.length === 0) {
+                    setLoadingMatches(false);
+                    return;
+                }
+                
+                // Extract student IDs
+                const studentIDs = matchesData.map(match => match.StudentID);
+                
+                // Now fetch student details from User table
+                const { data: studentsData, error: studentsError } = await supabase
+                    .from('User')
+                    .select('ID, FirstName, Surname, Email')
+                    .in('ID', studentIDs);
+                
+                if (studentsError) {
+                    console.error('Error fetching student details:', studentsError);
+                    return;
+                }
+                
+                // Get QCA data from Student table
+                const { data: qcaData, error: qcaError } = await supabase
+                    .from('Student')
+                    .select('StudentID, QCA')
+                    .in('StudentID', studentIDs);
+                
+                if (qcaError) {
+                    console.error('Error fetching QCA data:', qcaError);
+                }
+                
+                // Combine the data
+                const students = studentsData.map(user => {
+                    const studentQCA = qcaData?.find(q => q.StudentID === user.ID)?.QCA || null;
+                    return {
+                        studentName: `${user.FirstName || ''} ${user.Surname || ''}`.trim(),
+                        studentEmail: user.Email || '',
+                        qca: studentQCA
+                    };
+                });
+                
+                setMatchedStudents(students);
+                console.log('Matched students:', students);
+            } catch (error) {
+                console.error('Error in fetchMatchedStudents:', error);
+            } finally {
+                setLoadingMatches(false);
+            }
+        }
+        
+        fetchMatchedStudents();
+    }, [companyID]);
+
+    if (loadingMatches) {
+        return <p className="text-lg text-slate-300">Loading matched students...</p>;
+    }
+
+    return (
+        <section className="mx-auto mt-14 w-full max-w-3xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-10">
+            <h2 className="mb-6 text-2xl font-semibold">Matched Students</h2>
+            
+            {matchedStudents.length > 0 ? (
+                <ul className="space-y-4">
+                    {matchedStudents.map((student, idx) => (
+                        <li key={idx} className="rounded-lg border border-white/30 p-6">
+                            <h3 className="text-xl font-bold text-indigo-400">{student.studentName}</h3>
+                            <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-300">
+                                <span>Email: {student.studentEmail}</span>
+                                {student.qca !== null && <span>QCA: {student.qca.toFixed(2)}</span>}
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-lg text-slate-300">No students have been matched with your company yet.</p>
+            )}
+        </section>
+    );
+}
+
 interface JobPreview {
     title: string;
     company: string;
@@ -313,6 +417,9 @@ export default function PartnerDashboard() {
                         </ul>
                     </section>
                 )}
+
+                {/* Matched Students */}
+                <MatchedStudentsDisplay companyID={companyID} />
             </main>
         </div>
     );
