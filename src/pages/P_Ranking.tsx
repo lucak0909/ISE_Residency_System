@@ -1,52 +1,199 @@
-import {useState} from "react";
-import {NavLink} from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { NavLink } from 'react-router-dom';
+import { supabase } from '../helper/supabaseClient';
 
-const ALL_STUDENTS = Array.from({length: 6}, (_, i) => `Student ${i + 1}`);
+interface Student {
+    ID: number;
+    FirstName: string;
+    Surname: string;
+    displayName?: string;
+}
 
 export default function PartnerRanking() {
-    const [available, setAvailable] = useState<string[]>(ALL_STUDENTS);
-    const [ranking, setRanking] = useState<string[]>([]);
-    const [dragged, setDragged] = useState<string | null>(null);
+    // State for students and rankings
+    const [availableStudents, setAvailableStudents] = useState<Student[]>([]);
+    const [rankedStudents, setRankedStudents] = useState<Student[]>([]);
+    const [dragged, setDragged] = useState<Student | null>(null);
+    
+    // State for company ID and loading states
+    const [companyID, setCompanyID] = useState<number | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [fetchLoading, setFetchLoading] = useState(true);
+    const [submitSuccess, setSubmitSuccess] = useState(false);
 
-    const dragData = (e: React.DragEvent, name: string) => {
-        e.dataTransfer.setData("text/plain", name);
-        setDragged(name);
+    // Fetch company ID and students on mount
+    useEffect(() => {
+        async function fetchData() {
+            try {
+                // Get current user
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user?.email) return;
+                
+                // Get company ID from User table
+                const { data: userData } = await supabase
+                    .from('User')
+                    .select('ID')
+                    .eq('Email', user.email.toLowerCase())
+                    .maybeSingle();
+                
+                if (userData) {
+                    setCompanyID(userData.ID);
+                    
+                    // Fetch students who have been allocated interviews with this company
+                    const { data: interviewData } = await supabase
+                        .from('InterviewAllocated')
+                        .select('StudentID')
+                        .eq('CompanyID', userData.ID);
+                    
+                    if (interviewData && interviewData.length > 0) {
+                        // Get student details
+                        const studentIDs = interviewData.map(item => item.StudentID);
+                        const { data: students } = await supabase
+                            .from('User')
+                            .select('ID, FirstName, Surname')
+                            .in('ID', studentIDs)
+                            .eq('Role', 'student');
+                        
+                        if (students) {
+                            // Format student data with display names
+                            const formattedStudents = students.map(student => ({
+                                ...student,
+                                displayName: `${student.FirstName} ${student.Surname}`
+                            }));
+                            
+                            // Check if rankings already exist
+                            const { data: existingRankings } = await supabase
+                                .from('CompanyInterviewRank')
+                                .select('StudentID, Rank')
+                                .eq('CompanyID', userData.ID)
+                                .order('Rank');
+                            
+                            if (existingRankings && existingRankings.length > 0) {
+                                // Restore previous rankings
+                                const ranked = existingRankings
+                                    .map(ranking => {
+                                        return formattedStudents.find(s => s.ID === ranking.StudentID);
+                                    })
+                                    .filter(Boolean) as Student[];
+                                
+                                setRankedStudents(ranked);
+                                
+                                // Set remaining students as available
+                                const rankedIDs = ranked.map(s => s.ID);
+                                setAvailableStudents(
+                                    formattedStudents.filter(s => !rankedIDs.includes(s.ID))
+                                );
+                            } else {
+                                // No existing rankings, all students are available
+                                setAvailableStudents(formattedStudents);
+                            }
+                        }
+                    } else {
+                        // Fallback to mock data if no interviews allocated
+                        const mockStudents = Array.from({ length: 6 }, (_, i) => ({
+                            ID: i + 1,
+                            FirstName: `Student`,
+                            Surname: `${i + 1}`,
+                            displayName: `Student ${i + 1}`
+                        }));
+                        setAvailableStudents(mockStudents);
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                alert("Failed to load student data. Please try again later.");
+            } finally {
+                setFetchLoading(false);
+            }
+        }
+        
+        fetchData();
+    }, []);
+
+    // Drag and drop handlers
+    const dragData = (e: React.DragEvent, student: Student) => {
+        e.dataTransfer.setData("text/plain", student.ID.toString());
+        setDragged(student);
     };
 
     const allowDrop = (e: React.DragEvent) => e.preventDefault();
 
     const dropToRanking = (e: React.DragEvent) => {
         e.preventDefault();
-        const name = e.dataTransfer.getData("text/plain");
-        if (!name || ranking.includes(name)) return;
+        const studentId = parseInt(e.dataTransfer.getData("text/plain"), 10);
+        if (!studentId || rankedStudents.some(s => s.ID === studentId)) return;
 
-        setAvailable((a) => a.filter((n) => n !== name));
-        setRanking((r) => [...r, name]);
+        const student = availableStudents.find(s => s.ID === studentId);
+        if (!student) return;
+
+        setAvailableStudents(prev => prev.filter(s => s.ID !== studentId));
+        setRankedStudents(prev => [...prev, student]);
         setDragged(null);
     };
 
     const dropToAvailable = (e: React.DragEvent) => {
         e.preventDefault();
-        const name = e.dataTransfer.getData("text/plain");
-        if (!name) return;
+        const studentId = parseInt(e.dataTransfer.getData("text/plain"), 10);
+        if (!studentId) return;
 
-        setRanking((r) => r.filter((n) => n !== name));
-        if (!available.includes(name)) setAvailable((a) => [...a, name].sort());
+        const student = rankedStudents.find(s => s.ID === studentId);
+        if (!student) return;
+
+        setRankedStudents(prev => prev.filter(s => s.ID !== studentId));
+        setAvailableStudents(prev => [...prev, student].sort((a, b) => 
+            a.displayName?.localeCompare(b.displayName || '') || 0
+        ));
         setDragged(null);
     };
 
-    const handleReorder = (targetName: string) => {
-        if (!dragged || dragged === targetName) return;
-        setRanking((r) => {
-            const next = r.filter((n) => n !== dragged);
-            const idx = next.indexOf(targetName);
+    const handleReorder = (targetStudent: Student) => {
+        if (!dragged || dragged.ID === targetStudent.ID) return;
+        
+        setRankedStudents(prev => {
+            const next = prev.filter(s => s.ID !== dragged.ID);
+            const idx = next.findIndex(s => s.ID === targetStudent.ID);
             next.splice(idx, 0, dragged);
             return next;
         });
         setDragged(null);
     };
 
-    const submit = () => console.log("Submitted:", ranking);
+    // Submit rankings to database
+    const submitRankings = async () => {
+        if (!companyID || rankedStudents.length === 0) return;
+        
+        setLoading(true);
+        setSubmitSuccess(false);
+        
+        try {
+            // First delete any existing rankings
+            await supabase
+                .from('CompanyInterviewRank')
+                .delete()
+                .eq('CompanyID', companyID);
+            
+            // Insert new rankings
+            const rankings = rankedStudents.map((student, index) => ({
+                CompanyID: companyID,
+                StudentID: student.ID,
+                Rank: index + 1
+            }));
+            
+            const { error } = await supabase
+                .from('CompanyInterviewRank')
+                .insert(rankings);
+                
+            if (error) throw error;
+            
+            setSubmitSuccess(true);
+            setTimeout(() => setSubmitSuccess(false), 3000);
+        } catch (error: any) {
+            console.error("Error submitting rankings:", error);
+            alert(`Failed to save rankings: ${error.message || "Unknown error"}`);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="flex min-h-screen w-full bg-slate-900 text-white">
@@ -65,7 +212,6 @@ export default function PartnerRanking() {
                         Interviewee Ranking
                     </NavLink>
 
-
                     <div className="mt-auto pt-6">
                         <NavLink to="/login"
                                  className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600">
@@ -80,64 +226,82 @@ export default function PartnerRanking() {
                     Partner Rankings
                 </h1>
 
-                <div className="mx-auto w-full lg:w-[60%]">
-                    <div className="grid grid-cols-1 gap-20 lg:grid-cols-2">
-                        <section
-                            onDragOver={allowDrop}
-                            onDrop={dropToAvailable}
-                            className="w-full rounded-xl border border-slate-500/60 bg-slate-800/25 p-10"
-                        >
-                            <h2 className="mb-8 text-3xl font-semibold tracking-wide">Interviewees</h2>
-                            <ul className="space-y-3 text-lg">
-                                {available.map((c) => (
-                                    <li
-                                        key={c}
-                                        draggable
-                                        onDragStart={(e) => dragData(e, c)}
-                                        className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70"
-                                    >
-                                        {c}
-                                    </li>
-                                ))}
-                            </ul>
-                        </section>
-
-                        <section
-                            onDragOver={allowDrop}
-                            onDrop={dropToRanking}
-                            className="flex w-full flex-col rounded-xl border border-slate-500/60 bg-slate-800/25 p-10"
-                        >
-                            <h2 className="mb-8 text-3xl font-semibold tracking-wide">Your Ranking</h2>
-
-                            {ranking.length === 0 ? (
-                                <p className="text-lg italic text-slate-400">Drag students here</p>
-                            ) : (
-                                <ol className="space-y-3 text-lg">
-                                    {ranking.map((c, i) => (
-                                        <li
-                                            key={c}
-                                            draggable
-                                            onDragStart={(e) => dragData(e, c)}
-                                            onDragOver={allowDrop}
-                                            onDrop={() => handleReorder(c)}
-                                            className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70"
-                                        >
-                                            {i + 1}. {c}
-                                        </li>
-                                    ))}
-                                </ol>
-                            )}
-
-                            <button
-                                onClick={submit}
-                                disabled={ranking.length === 0}
-                                className="mt-4 mt-auto w-full rounded-md bg-indigo-600 px-5 py-3 text-lg font-semibold hover:bg-indigo-500 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                            >
-                                Submit Ranking
-                            </button>
-                        </section>
+                {fetchLoading ? (
+                    <div className="flex justify-center">
+                        <div className="animate-pulse text-xl text-slate-300">Loading student data...</div>
                     </div>
-                </div>
+                ) : (
+                    <div className="mx-auto w-full lg:w-[60%]">
+                        <div className="grid grid-cols-1 gap-20 lg:grid-cols-2">
+                            <section
+                                onDragOver={allowDrop}
+                                onDrop={dropToAvailable}
+                                className="w-full rounded-xl border border-slate-500/60 bg-slate-800/25 p-10"
+                            >
+                                <h2 className="mb-8 text-3xl font-semibold tracking-wide">Interviewees</h2>
+                                {availableStudents.length === 0 ? (
+                                    <p className="text-lg italic text-slate-400">No unranked students</p>
+                                ) : (
+                                    <ul className="space-y-3 text-lg">
+                                        {availableStudents.map((student) => (
+                                            <li
+                                                key={student.ID}
+                                                draggable
+                                                onDragStart={(e) => dragData(e, student)}
+                                                className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70"
+                                            >
+                                                {student.displayName || `${student.FirstName} ${student.Surname}`}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </section>
+
+                            <section
+                                onDragOver={allowDrop}
+                                onDrop={dropToRanking}
+                                className="flex w-full flex-col rounded-xl border border-slate-500/60 bg-slate-800/25 p-10"
+                            >
+                                <h2 className="mb-8 text-3xl font-semibold tracking-wide">Your Ranking</h2>
+
+                                {rankedStudents.length === 0 ? (
+                                    <p className="text-lg italic text-slate-400">Drag students here to rank them</p>
+                                ) : (
+                                    <ol className="space-y-3 text-lg">
+                                        {rankedStudents.map((student, i) => (
+                                            <li
+                                                key={student.ID}
+                                                draggable
+                                                onDragStart={(e) => dragData(e, student)}
+                                                onDragOver={allowDrop}
+                                                onDrop={() => handleReorder(student)}
+                                                className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70"
+                                            >
+                                                {i + 1}. {student.displayName || `${student.FirstName} ${student.Surname}`}
+                                            </li>
+                                        ))}
+                                    </ol>
+                                )}
+
+                                <div className="mt-auto pt-6">
+                                    {submitSuccess && (
+                                        <div className="mb-4 rounded-md bg-green-600/20 p-3 text-center text-green-400 ring-1 ring-green-500/30">
+                                            Rankings saved successfully!
+                                        </div>
+                                    )}
+                                    
+                                    <button
+                                        onClick={submitRankings}
+                                        disabled={rankedStudents.length === 0 || loading}
+                                        className="w-full rounded-md bg-indigo-600 px-5 py-3 text-lg font-semibold hover:bg-indigo-500 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                    >
+                                        {loading ? "Saving..." : "Submit Ranking"}
+                                    </button>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                )}
             </main>
         </div>
     );
