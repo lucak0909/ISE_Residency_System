@@ -1,8 +1,12 @@
 /// <reference types="vitest/globals" />
+// import test functions
 import { describe, it, expect } from 'vitest'
+// import rendering utilities from the @testing-libray
 import { render, screen } from '@testing-library/react'
+// Import MemoryRouter to simulate routing
 import { MemoryRouter } from 'react-router-dom'
-import P_Ranking from '../pages/App' // or P_Ranking from '../pages/P_Ranking'
+// Component that is under the test
+import P_Ranking from '../pages/App' //
 
 describe('App Component', () => {
     it('renders something', () => {
