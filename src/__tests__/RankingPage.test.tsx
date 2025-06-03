@@ -9,7 +9,7 @@ import { MemoryRouter } from 'react-router-dom'
 import P_Ranking from '../pages/App' //
 
 describe('App Component', () => {
-    it('renders something', () => {
+    it('renders the login page with sign-in text', () => {
         render(
             <MemoryRouter>
                 <P_Ranking />
