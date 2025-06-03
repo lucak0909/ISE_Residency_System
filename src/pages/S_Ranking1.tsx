@@ -189,15 +189,15 @@ export default function StudentRanking1() {
         try {
             const companyData = e.dataTransfer.getData("text/plain");
             if (!companyData) return;
-            
+
             const company = JSON.parse(companyData) as CompanyWithID;
-            
+
             // Check if company already exists in ranking list
             if (!company || ranking.some(c => c.id === company.id)) return;
 
             // Remove from available list
             setAvailable((a) => a.filter((c) => c.id !== company.id));
-            
+
             // Add to ranking list
             setRanking((r) => [...r, company]);
             setDragged(null);
@@ -211,16 +211,16 @@ export default function StudentRanking1() {
         try {
             const companyData = e.dataTransfer.getData("text/plain");
             if (!companyData) return;
-            
+
             const company = JSON.parse(companyData) as CompanyWithID;
             if (!company) return;
 
             // Check if the company is in the ranking list before removing
             if (!ranking.some(c => c.id === company.id)) return;
-            
+
             // Remove from ranking list
             setRanking((r) => r.filter((c) => c.id !== company.id));
-            
+
             // Add to available list if not already there
             if (!available.some(c => c.id === company.id)) {
                 setAvailable((a) => [...a, company].sort((a, b) => a.name.localeCompare(b.name)));
@@ -233,17 +233,17 @@ export default function StudentRanking1() {
 
     const handleReorder = (targetCompany: CompanyWithID) => {
         if (!dragged || dragged.id === targetCompany.id) return;
-        
+
         setRanking((r) => {
             // First check if dragged company is already in the list
             if (!r.some(c => c.id === dragged.id)) return r;
-            
+
             // Create a new array without the dragged company
             const next = r.filter((c) => c.id !== dragged.id);
-            
+
             // Find the index of the target company
             const idx = next.findIndex(c => c.id === targetCompany.id);
-            
+
             // Insert the dragged company at that index
             next.splice(idx, 0, dragged);
             return next;
@@ -271,7 +271,7 @@ export default function StudentRanking1() {
                 .from('StudentRank1')
                 .delete()
                 .eq('StudentID', studentID);
-            
+
             if (deleteError) throw deleteError;
 
             // Prepare the rankings data
@@ -280,19 +280,19 @@ export default function StudentRanking1() {
                 CompanyID: company.id,
                 Rank: index + 1 // Ranks start at 1
             }));
-            
+
             // Insert the new rankings
             if (rankingsData.length > 0) {
                 const { error: insertError } = await supabase
                     .from('StudentRank1')
                     .insert(rankingsData);
-                
+
                 if (insertError) throw insertError;
             }
-            
+
             setSubmitSuccess(true);
             setTimeout(() => setSubmitSuccess(false), 3000); // Hide success message after 3 seconds
-            
+
         } catch (err: any) {
             console.error('Error submitting rankings:', err);
             setError(err.message || "Failed to save rankings");
@@ -348,16 +348,20 @@ export default function StudentRanking1() {
                         Filter by Residency Period:
                     </label>
                     <select
-                        id="residency-select"
-                        value={selectedResidency}
-                        onChange={(e) => setSelectedResidency(e.target.value)}
-                        className="w-full rounded-md border border-white/30 bg-slate-700/40 p-3 text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                      id="residency-select"
+                      value={selectedResidency}
+                      onChange={(e) => setSelectedResidency(e.target.value)}
+                      className="w-full max-w-md rounded-md border border-indigo-500/30 bg-slate-800 px-4 py-2 text-white shadow-md focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                        {RESIDENCY_PERIODS.map(period => (
-                            <option key={period} value={period}>
-                                {period}
-                            </option>
-                        ))}
+                      {RESIDENCY_PERIODS.map((period) => (
+                        <option 
+                          key={period} 
+                          value={period} 
+                          className="bg-slate-800 text-white hover:bg-slate-700"
+                        >
+                          {period}
+                        </option>
+                      ))}
                     </select>
                 </div>
 
