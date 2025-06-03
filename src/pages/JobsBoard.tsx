@@ -97,7 +97,7 @@ function JobsBoard() {
 
             {/* Job Grid and Modal */}
             <main className="flex-1 p-10">
-                <h1 className="text-3xl font-bold mb-8">🧑‍💼 Available Residencies</h1>
+                <h1 className="text-3xl font-bold mb-8">Available Residencies</h1>
                 {groupedJobs.map(group => (
                     <div key={group.round} className="mb-10">
                         <h2 className="text-2xl font-semibold mb-4">{group.round}</h2>
