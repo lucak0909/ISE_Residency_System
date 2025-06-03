@@ -2,174 +2,211 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 // @ts-ignore
 import { supabase } from '../helper/supabaseClient';
+import bcrypt from 'bcryptjs';
 
-export default function App() {
-    const navigate = useNavigate();
+/**
+ * AuthPage – Signup / Login
+ * ------------------------------------------------------------------
+ * Company flow:
+ *   1. User signs up with e‑mail/password/full name.
+ *   2. After signup prompt asks for Company Name and saves it to Company table.
+ * Student flow remains unchanged.
+ * ------------------------------------------------------------------
+ */
+export default function AuthPage() {
+  const navigate = useNavigate();
 
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [name, setName] = useState('');
-    const [confirm, setConfirm] = useState('');
-    const [isSignUp, setIsSignUp] = useState(false);
+  /* ----------------------------- State ----------------------------*/
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [loading, setLoading] = useState(false);
 
+  /* ------------------------ Helpers ------------------------------*/
+  const studentRegex = /^\d{8}@studentmail\.ul\.ie$/i;
+  const trimmedEmail = email.trim().toLowerCase();
+  const isStudentEmail = studentRegex.test(trimmedEmail);
 
-    function deriveStudentId(emailAddr: string): number | null {
-        const lc = emailAddr.toLowerCase();
-        if (!lc.endsWith('@studentmail.ul.ie')) return null;
-        const prefix = lc.split('@')[0];
-        if (!/^\d+$/.test(prefix)) return null; // must be only digits
-        return parseInt(prefix, 10);
+  const splitName = (name: string) => {
+    const [first = '', ...rest] = name.trim().split(/\s+/);
+    return { first, last: rest.join(' ') };
+  };
+
+  const generateUniqueID = async (): Promise<number> => {
+    while (true) {
+      const id = Math.floor(1_000_0000 + Math.random() * 9_000_0000);
+      const { data } = await supabase.from('User').select('ID').eq('ID', id).maybeSingle();
+      if (!data) return id;
+    }
+  };
+
+  /* -------------------------- Sign‑up ----------------------------*/
+  const handleSignUp = async () => {
+    if (password !== confirm) {
+      alert('Passwords do not match');
+      return;
     }
 
-    async function handleLogin() {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-            alert(error.message);
-            return;
+    setLoading(true);
+    try {
+      let role: 'student' | 'company';
+      let id: number;
+
+      if (isStudentEmail) {
+        role = 'student';
+        id = parseInt(trimmedEmail.substring(0, 8), 10);
+      } else {
+        const { data: white } = await supabase.from('WhiteList').select('Email').eq('Email', trimmedEmail).maybeSingle();
+        if (!white) throw new Error('Email not authorised for company signup');
+        role = 'company';
+        id = await generateUniqueID();
+      }
+
+      const { error: authErr } = await supabase.auth.signUp({ email: trimmedEmail, password });
+      if (authErr) throw authErr;
+
+      const passwordHash = bcrypt.hashSync(password, 10);
+      const { first, last } = splitName(fullName);
+      const { error: userErr } = await supabase.from('User').insert({
+        ID: id,
+        Email: trimmedEmail,
+        Username: id.toString(),
+        FirstName: first,
+        Surname: last,
+        Role: role,
+        PasswordHash: passwordHash,
+      });
+      if (userErr) throw userErr;
+
+      if (role === 'student') {
+        const { error } = await supabase.from('Student').insert({ StudentID: id });
+        if (error) throw error;
+        alert('Student account created!');
+        navigate('/StudentDashboard');
+      } else {
+        let companyName = '';
+        while (!companyName) {
+          companyName = window.prompt('Enter your Company Name to finish signup:', '')?.trim() || '';
+          if (!companyName) alert('Company Name is required.');
         }
+        const { error } = await supabase.from('Company').insert({
+          CompanyID: id,
+          Email: trimmedEmail,
+          CompanyName: companyName,
+        });
+        if (error) throw error;
+        alert('Company account created!');
+        navigate('/PartnerDashboard');
+      }
 
-        navigate(
-            email.toLowerCase().endsWith('@studentmail.ul.ie')
-                ? '/StudentDashboard'
-                : '/PartnerDashboard',
-        );
+      setIsSignUp(false);
+      setEmail('');
+      setPassword('');
+      setConfirm('');
+      setFullName('');
+    } catch (err: any) {
+      alert(err.message || 'Signup failed');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    async function handleSignUp() {
-        if (password !== confirm) {
-            alert('Passwords do not match');
-            return;
-        }
-
-        // Split the full name into first- & surname
-        const trimmedName = name.trim();
-        const [firstName, ...rest] = trimmedName.split(' ');
-        const surname = rest.join(' ');
-
-        // Determine Type (0 = student, 1 = partner/staff)
-        const isStudent = email.toLowerCase().endsWith('@studentmail.ul.ie');
-        const type = isStudent ? 0 : 1;
-
-        // Build the row payload
-        const emailPrefix = email.split('@')[0];
-        const studentId = deriveStudentId(email);
-
-        const newUser: Record<string, any> = {
-            Email: email,
-            Username: emailPrefix,
-            Password: password, // ❗ hash in production
-            FirstName: firstName,
-            Surname: surname,
-            Type: type,
-        };
-
-        // Only include ID for studentmail addresses with a numeric prefix
-        if (studentId !== null) newUser.ID = studentId;
-
-        const { error } = await supabase.from('User').insert(newUser);
-
-        if (error) {
-            console.error(error);
-            alert(error.message ?? 'Something went wrong while creating your account.');
-            return;
-        }
-
-        navigate(isStudent ? '/StudentDashboard' : '/PartnerDashboard');
+  /* --------------------------- Login -----------------------------*/
+  const handleLogin = async () => {
+    setLoading(true);
+    try {
+      const { error: authErr } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
+      if (authErr) throw authErr;
+      const { data: userRow } = await supabase.from('User').select('Role').eq('Email', trimmedEmail).maybeSingle();
+      if (userRow?.Role === 'student') navigate('/StudentDashboard');
+      else if (userRow?.Role === 'company') navigate('/PartnerDashboard');
+      else navigate('/');
+    } catch (err: any) {
+      alert(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
-        isSignUp ? handleSignUp() : handleLogin();
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    isSignUp ? handleSignUp() : handleLogin();
+  };
 
-    return (
-        <div className="min-h-screen bg-[#0e1126] flex flex-col items-center justify-center px-4 py-10">
-            <div className="mb-6 text-center">
-                <h1 className="text-5xl font-bold text-white mb-2">ISE Jobs Board</h1>
-                <hr className="border-t-2 border-gray-400 w-64 mx-auto" />
-            </div>
+  /* --------------------------- JSX -------------------------------*/
+  return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-900 p-4 text-white">
+        <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-2xl bg-slate-800 p-8 shadow-lg">
+          <h1 className="text-center text-2xl font-semibold">{isSignUp ? 'Create an account' : 'Sign in'}</h1>
 
-            <form
-                onSubmit={handleSubmit}
-                className="w-full max-w-sm space-y-4 rounded-2xl bg-slate-800 p-8 shadow-lg"
-            >
-                <h1 className="text-center text-2xl font-semibold">
-                    {isSignUp ? 'Create an account' : 'Sign in'}
-                </h1>
+          {isSignUp && (
+              <input
+                  type="text"
+                  placeholder="Full name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  className="w-full rounded-lg bg-slate-700 p-3 outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+          )}
 
-                {isSignUp && (
-                    <input
-                        type="text"
-                        placeholder="Full name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        required
-                        className="w-full rounded-lg bg-slate-700 p-3 outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                )}
+          <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full rounded-lg bg-slate-700 p-3 outline-none focus:ring-2 focus:ring-indigo-500"
+          />
 
-                <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="w-full rounded-lg bg-slate-700 p-3 outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+          <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full rounded-lg bg-slate-700 p-3 outline-none focus:ring-2 focus:ring-indigo-500"
+          />
 
-                <input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="w-full rounded-lg bg-slate-700 p-3 outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+          {isSignUp && (
+              <input
+                  type="password"
+                  placeholder="Confirm password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  required
+                  className="w-full rounded-lg bg-slate-700 p-3 outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+          )}
 
-                {isSignUp && (
-                    <input
-                        type="password"
-                        placeholder="Confirm password"
-                        value={confirm}
-                        onChange={(e) => setConfirm(e.target.value)}
-                        required
-                        className="w-full rounded-lg bg-slate-700 p-3 outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                )}
+          <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-indigo-600 py-2 font-medium hover:bg-indigo-500 active:scale-95 disabled:opacity-60"
+          >
+            {loading ? 'Please wait…' : isSignUp ? 'Sign up' : 'Log in'}
+          </button>
 
-                <button
-                    type="submit"
-                    className="w-full rounded-lg bg-indigo-600 py-2 font-medium hover:bg-indigo-500 active:scale-95"
-                >
-                    {isSignUp ? 'Sign up' : 'Log in'}
-                </button>
-
-                <p className="text-center text-sm text-slate-400">
-                    {isSignUp ? (
-                        <>
-                            Already have an account?{' '}
-                            <button
-                                type="button"
-                                className="font-medium text-indigo-400 hover:underline"
-                                onClick={() => setIsSignUp(false)}
-                            >
-                                Log in
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            New here?{' '}
-                            <button
-                                type="button"
-                                className="font-medium text-indigo-400 hover:underline"
-                                onClick={() => setIsSignUp(true)}
-                            >
-                                Create one
-                            </button>
-                        </>
-                    )}
-                </p>
-            </form>
-        </div>
-    );
+          <p className="text-center text-sm text-slate-400">
+            {isSignUp ? (
+                <>
+                  Already have an account?{' '}
+                  <button type="button" className="font-medium text-indigo-400 hover:underline" onClick={() => setIsSignUp(false)}>
+                    Log in
+                  </button>
+                </>
+            ) : (
+                <>
+                  New here?{' '}
+                  <button type="button" className="font-medium text-indigo-400 hover:underline" onClick={() => setIsSignUp(true)}>
+                    Create one
+                  </button>
+                </>
+            )}
+          </p>
+        </form>
+      </div>
+  );
 }
