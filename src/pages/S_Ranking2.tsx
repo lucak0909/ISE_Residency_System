@@ -124,9 +124,14 @@ export default function StudentRanking2() {
             if (!companyData) return;
             
             const company = JSON.parse(companyData) as Company;
+            
+            // Check if company already exists in ranking list
             if (!company || ranking.some(c => c.CompanyID === company.CompanyID)) return;
 
+            // Remove from available list
             setAvailable((a) => a.filter((c) => c.CompanyID !== company.CompanyID));
+            
+            // Add to ranking list
             setRanking((r) => [...r, company]);
             setDragged(null);
         } catch (error) {
@@ -143,7 +148,13 @@ export default function StudentRanking2() {
             const company = JSON.parse(companyData) as Company;
             if (!company) return;
 
+            // Check if the company is in the ranking list before removing
+            if (!ranking.some(c => c.CompanyID === company.CompanyID)) return;
+            
+            // Remove from ranking list
             setRanking((r) => r.filter((c) => c.CompanyID !== company.CompanyID));
+            
+            // Add to available list if not already there
             if (!available.some(c => c.CompanyID === company.CompanyID)) {
                 setAvailable((a) => [...a, company].sort((a, b) => 
                     a.CompanyName.localeCompare(b.CompanyName)
@@ -157,9 +168,18 @@ export default function StudentRanking2() {
 
     const handleReorder = (targetCompany: Company) => {
         if (!dragged || dragged.CompanyID === targetCompany.CompanyID) return;
+        
         setRanking((r) => {
+            // First check if dragged company is already in the list
+            if (!r.some(c => c.CompanyID === dragged.CompanyID)) return r;
+            
+            // Create a new array without the dragged company
             const next = r.filter((c) => c.CompanyID !== dragged.CompanyID);
+            
+            // Find the index of the target company
             const idx = next.findIndex(c => c.CompanyID === targetCompany.CompanyID);
+            
+            // Insert the dragged company at that index
             next.splice(idx, 0, dragged);
             return next;
         });

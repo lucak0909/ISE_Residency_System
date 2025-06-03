@@ -178,7 +178,7 @@ export default function StudentRanking1() {
     }, [selectedResidency, allCompanies, ranking]);
 
     const dragData = (e: React.DragEvent, company: CompanyWithID) => {
-        e.dataTransfer.setData("application/json", JSON.stringify(company));
+        e.dataTransfer.setData("text/plain", JSON.stringify(company));
         setDragged(company);
     };
 
@@ -186,34 +186,65 @@ export default function StudentRanking1() {
 
     const dropToRanking = (e: React.DragEvent) => {
         e.preventDefault();
-        const companyData = e.dataTransfer.getData("application/json");
-        if (!companyData) return;
-        const company = JSON.parse(companyData) as CompanyWithID;
-        if (ranking.some(c => c.id === company.id)) return;
+        try {
+            const companyData = e.dataTransfer.getData("text/plain");
+            if (!companyData) return;
+            
+            const company = JSON.parse(companyData) as CompanyWithID;
+            
+            // Check if company already exists in ranking list
+            if (!company || ranking.some(c => c.id === company.id)) return;
 
-        setAvailable((a) => a.filter((c) => c.id !== company.id));
-        setRanking((r) => [...r, company]);
-        setDragged(null);
+            // Remove from available list
+            setAvailable((a) => a.filter((c) => c.id !== company.id));
+            
+            // Add to ranking list
+            setRanking((r) => [...r, company]);
+            setDragged(null);
+        } catch (error) {
+            console.error("Error processing drop:", error);
+        }
     };
 
     const dropToAvailable = (e: React.DragEvent) => {
         e.preventDefault();
-        const companyData = e.dataTransfer.getData("application/json");
-        if (!companyData) return;
-        const company = JSON.parse(companyData) as CompanyWithID;
+        try {
+            const companyData = e.dataTransfer.getData("text/plain");
+            if (!companyData) return;
+            
+            const company = JSON.parse(companyData) as CompanyWithID;
+            if (!company) return;
 
-        setRanking((r) => r.filter((c) => c.id !== company.id));
-        if (!available.some(c => c.id === company.id)) {
-            setAvailable((a) => [...a, company].sort((a, b) => a.name.localeCompare(b.name)));
+            // Check if the company is in the ranking list before removing
+            if (!ranking.some(c => c.id === company.id)) return;
+            
+            // Remove from ranking list
+            setRanking((r) => r.filter((c) => c.id !== company.id));
+            
+            // Add to available list if not already there
+            if (!available.some(c => c.id === company.id)) {
+                setAvailable((a) => [...a, company].sort((a, b) => a.name.localeCompare(b.name)));
+            }
+            setDragged(null);
+        } catch (error) {
+            console.error("Error processing drop:", error);
         }
-        setDragged(null);
     };
 
     const handleReorder = (targetCompany: CompanyWithID) => {
         if (!dragged || dragged.id === targetCompany.id) return;
+        
         setRanking((r) => {
+            // First check if dragged company is already in the list
+            if (!r.some(c => c.id === dragged.id)) return r;
+            
+            // Create a new array without the dragged company
             const next = r.filter((c) => c.id !== dragged.id);
+            
+            // Find the index of the target company
             const idx = next.findIndex(c => c.id === targetCompany.id);
+            
+            // Insert the dragged company at that index
             next.splice(idx, 0, dragged);
             return next;
         });

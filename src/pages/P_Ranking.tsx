@@ -121,12 +121,17 @@ export default function PartnerRanking() {
     const dropToRanking = (e: React.DragEvent) => {
         e.preventDefault();
         const studentId = parseInt(e.dataTransfer.getData("text/plain"), 10);
+        
+        // Check if student ID is valid and not already in the ranked list
         if (!studentId || rankedStudents.some(s => s.ID === studentId)) return;
 
         const student = availableStudents.find(s => s.ID === studentId);
         if (!student) return;
 
+        // Remove from available students
         setAvailableStudents(prev => prev.filter(s => s.ID !== studentId));
+        
+        // Add to ranked students
         setRankedStudents(prev => [...prev, student]);
         setDragged(null);
     };
@@ -134,15 +139,22 @@ export default function PartnerRanking() {
     const dropToAvailable = (e: React.DragEvent) => {
         e.preventDefault();
         const studentId = parseInt(e.dataTransfer.getData("text/plain"), 10);
-        if (!studentId) return;
+        
+        // Check if student ID is valid and exists in the ranked list
+        if (!studentId || !rankedStudents.some(s => s.ID === studentId)) return;
 
         const student = rankedStudents.find(s => s.ID === studentId);
         if (!student) return;
 
+        // Remove from ranked students
         setRankedStudents(prev => prev.filter(s => s.ID !== studentId));
-        setAvailableStudents(prev => [...prev, student].sort((a, b) => 
-            a.displayName?.localeCompare(b.displayName || '') || 0
-        ));
+        
+        // Add to available students if not already there
+        if (!availableStudents.some(s => s.ID === studentId)) {
+            setAvailableStudents(prev => [...prev, student].sort((a, b) => 
+                a.displayName?.localeCompare(b.displayName || '') || 0
+            ));
+        }
         setDragged(null);
     };
 
@@ -150,8 +162,16 @@ export default function PartnerRanking() {
         if (!dragged || dragged.ID === targetStudent.ID) return;
         
         setRankedStudents(prev => {
+            // Check if dragged student is in the list
+            if (!prev.some(s => s.ID === dragged.ID)) return prev;
+            
+            // Create a new array without the dragged student
             const next = prev.filter(s => s.ID !== dragged.ID);
+            
+            // Find the index of the target student
             const idx = next.findIndex(s => s.ID === targetStudent.ID);
+            
+            // Insert the dragged student at that index
             next.splice(idx, 0, dragged);
             return next;
         });
