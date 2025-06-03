@@ -13,7 +13,9 @@ export default function StudentRanking2() {
     const [ranking, setRanking] = useState<Company[]>([]);
     const [dragged, setDragged] = useState<Company | null>(null);
     const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const [studentID, setStudentID] = useState<number | null>(null);
+    const [submitted, setSubmitted] = useState(false);
 
     // Fetch the current user's allocated companies on component mount
     useEffect(() => {
@@ -71,7 +73,33 @@ export default function StudentRanking2() {
                     return;
                 }
                 
-                setAvailable(companies);
+                // 5. Check if student has already submitted rankings
+                const { data: existingRankings, error: rankError } = await supabase
+                    .from('StudentInterviewRank')
+                    .select('CompanyID, Rank')
+                    .eq('StudentID', userData.ID)
+                    .order('Rank');
+                
+                if (rankError) {
+                    console.error("Error checking existing rankings:", rankError);
+                } else if (existingRankings && existingRankings.length > 0) {
+                    // If rankings exist, load them
+                    setSubmitted(true);
+                    
+                    // Map company IDs to full company objects
+                    const rankedCompanies = existingRankings
+                        .map(rank => companies.find(c => c.CompanyID === rank.CompanyID))
+                        .filter(Boolean) as Company[];
+                    
+                    setRanking(rankedCompanies);
+                    
+                    // Set available companies (those not in the ranking)
+                    const rankedIDs = rankedCompanies.map(c => c.CompanyID);
+                    setAvailable(companies.filter(c => !rankedIDs.includes(c.CompanyID)));
+                } else {
+                    // No existing rankings, set all companies as available
+                    setAvailable(companies);
+                }
             } catch (error) {
                 console.error("Unexpected error:", error);
             } finally {
@@ -142,9 +170,10 @@ export default function StudentRanking2() {
         if (!studentID || ranking.length === 0) return;
         
         try {
+            setSubmitting(true);
             // First, delete any existing rankings for this student
             await supabase
-                .from('StudentRank2')
+                .from('StudentInterviewRank')
                 .delete()
                 .eq('StudentID', studentID);
             
@@ -156,7 +185,7 @@ export default function StudentRanking2() {
             }));
             
             const { error } = await supabase
-                .from('StudentRank2')
+                .from('StudentInterviewRank')
                 .insert(rankingData);
                 
             if (error) {
@@ -164,10 +193,13 @@ export default function StudentRanking2() {
                 alert("Failed to submit rankings. Please try again.");
             } else {
                 alert("Rankings submitted successfully!");
+                setSubmitted(true);
             }
         } catch (error) {
             console.error("Unexpected error during submission:", error);
             alert("An unexpected error occurred. Please try again.");
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -274,10 +306,10 @@ export default function StudentRanking2() {
 
                                     <button
                                         onClick={submit}
-                                        disabled={ranking.length === 0}
+                                        disabled={ranking.length === 0 || submitting || submitted}
                                         className="mt-4 mt-auto w-full rounded-md bg-indigo-600 px-5 py-3 text-lg font-semibold hover:bg-indigo-500 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                     >
-                                        Submit Ranking
+                                        {submitting ? "Submitting..." : submitted ? "Submitted" : "Submit Ranking"}
                                     </button>
                                 </section>
                             </div>
