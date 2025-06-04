@@ -130,6 +130,8 @@ export default function PartnerDashboard() {
     const [residencyTerm, setResidencyTerm] = useState('R1'); // Add this new state
     const [loading, setLoading] = useState(false);
     const [jobsPreview, setJobsPreview] = useState<JobPreview[]>([]);
+    const [userName, setUserName] = useState<string>('');
+
 
     // ---------- Fetch CompanyID + CompanyName on mount ----------
     useEffect(() => {
@@ -244,6 +246,28 @@ export default function PartnerDashboard() {
         }
     }, [companyID, companyName]);
 
+    //fetch user name on mount
+    useEffect(() => {
+        async function fetchUserName() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data, error } = await supabase
+                    .from('User')
+                    .select('FirstName, Surname')
+                    .eq('Email', user.email)
+                    .single();
+
+                if (error) {
+                    console.error('Error fetching user name:', error);
+                } else if (data) {
+                    setUserName(`${data.FirstName} ${data.Surname}`);
+                }
+            }
+        }
+
+        fetchUserName();
+    }, []);
+
     // --------------------- Helpers ---------------------
     const resetForm = () => {
         setTitle('');
@@ -328,8 +352,12 @@ export default function PartnerDashboard() {
                     <NavLink to="/PartnerRanking" className="rounded-md px-3 py-2 hover:bg-slate-700/50">
                         Interviewee Ranking
                     </NavLink>
-                    <div className="mt-auto pt-6">
-                        <NavLink to="/login" className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600">
+                    <div className="mt-auto pt-6 flex flex-col items-center">
+                        <span className="mb-1.5 text-xs text-green-800">Signed in as {userName}</span>
+                        <NavLink
+                            to="/login"
+                            className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600"
+                        >
                             Log Out
                         </NavLink>
                     </div>

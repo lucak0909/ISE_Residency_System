@@ -1,6 +1,6 @@
-import {useState, useEffect} from "react";
-import {NavLink} from 'react-router-dom';
-import {supabase} from "../helper/supabaseClient";
+import { useState, useEffect } from "react";
+import { NavLink } from 'react-router-dom';
+import { supabase } from "../helper/supabaseClient";
 
 function FinalMatchDisplay() {
     const [matchedCompany, setMatchedCompany] = useState<{ companyName: string, position: string | null } | null>(null);
@@ -9,11 +9,9 @@ function FinalMatchDisplay() {
     useEffect(() => {
         async function fetchMatchData() {
             try {
-                // Get current user's email
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user?.email) return;
                 
-                // Get student ID from User table
                 const { data: userData } = await supabase
                     .from('User')
                     .select('ID')
@@ -22,7 +20,6 @@ function FinalMatchDisplay() {
                 
                 if (!userData) return;
                 
-                // Get matched company from FinalMatches table
                 const { data: matchData } = await supabase
                     .from('FinalMatches')
                     .select(`
@@ -33,7 +30,6 @@ function FinalMatchDisplay() {
                     .eq('StudentID', userData.ID)
                     .maybeSingle();
                 
-                // Get position title if available
                 const { data: positionData } = await supabase
                     .from('Position')
                     .select('Title')
@@ -74,25 +70,43 @@ function FinalMatchDisplay() {
 }
 
 export default function StudentDashboard() {
-    /*  local component state  */
     const [cvFile, setCvFile] = useState<File | null>(null);
     const [linkedin, setLinkedin] = useState("");
     const [github, setGithub] = useState("");
     const [qca, setQca] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
+    const [userName, setUserName] = useState<string>('');
 
-    // Fetch student QCA on component mount
+    useEffect(() => {
+        async function fetchUserName() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data, error } = await supabase
+                    .from('User')
+                    .select('FirstName, Surname')
+                    .eq('Email', user.email)
+                    .single();
+
+                if (error) {
+                    console.error('Error fetching user name:', error);
+                } else if (data) {
+                    setUserName(`${data.FirstName} ${data.Surname}`);
+                }
+            }
+        }
+
+        fetchUserName();
+    }, []);
+
     useEffect(() => {
         async function fetchStudentData() {
             try {
                 setLoading(true);
 
-                // Get the current user
-                const {data: {user}} = await supabase.auth.getUser();
+                const { data: { user } } = await supabase.auth.getUser();
 
                 if (user) {
-                    // First get the user's ID from the User table
-                    const {data: userData, error: userError} = await supabase
+                    const { data: userData, error: userError } = await supabase
                         .from('User')
                         .select('ID')
                         .eq('Email', user.email)
@@ -104,8 +118,7 @@ export default function StudentDashboard() {
                     }
 
                     if (userData) {
-                        // Now fetch the student record using the ID from User table
-                        const {data: studentData, error: studentError} = await supabase
+                        const { data: studentData, error: studentError } = await supabase
                             .from('Student')
                             .select('QCA')
                             .eq('StudentID', userData.ID)
@@ -130,15 +143,12 @@ export default function StudentDashboard() {
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        // TODO: send FormData / JSON to backend
-        console.log({cvFile, linkedin, github});
+        console.log({ cvFile, linkedin, github });
         alert("Profile saved (mock)");
     }
 
-    /*  render section  */
     return (
         <div className="flex min-h-screen w-full bg-slate-900 text-white">
-            {/*  Navigation bar  */}
             <aside
                 className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6 backdrop-blur-xl">
                 <h2 className="text-2xl font-bold tracking-tight">Menu</h2>
@@ -164,22 +174,23 @@ export default function StudentDashboard() {
                         Post-Interview Ranking
                     </NavLink>
 
-                    <div className="mt-auto pt-6">
-                        <NavLink to="/login"
-                                 className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600">
+                    <div className="mt-auto pt-6 flex flex-col items-center">
+                        <span className="mb-1.5 text-xs text-green-800">Signed in as {userName}</span>
+                        <NavLink
+                            to="/login"
+                            className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600"
+                        >
                             Log Out
                         </NavLink>
                     </div>
                 </nav>
             </aside>
 
-            {/*  Main content  */}
             <main className="flex-1 px-8 py-16 lg:px-14 lg:py-20">
                 <h1 className="mb-12 text-center text-4xl font-extrabold tracking-tight md:text-6xl">
                     Student Dashboard
                 </h1>
 
-                {/* QCA display */}
                 <section
                     className="mx-auto mb-12 w-full max-w-xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-8 text-center">
                     <h2 className="mb-3 text-2xl font-semibold">Your QCA</h2>
@@ -192,18 +203,15 @@ export default function StudentDashboard() {
                     )}
                 </section>
 
-                {/* Final Match Display */}
                 <section className="mx-auto mb-12 w-full max-w-xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-8 text-center">
                     <h2 className="mb-3 text-2xl font-semibold">Your Residency Match</h2>
                     <FinalMatchDisplay />
                 </section>
 
-                {/* Profile form */}
                 <section className="mx-auto w-full max-w-xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-8">
                     <h2 className="mb-6 text-2xl font-semibold">Profile Details</h2>
 
                     <form className="space-y-6" onSubmit={handleSubmit}>
-                        {/* CV upload */}
                         <div className="flex flex-col gap-2">
                             <label className="font-medium" htmlFor="cv">
                                 Upload CV (PDF)
@@ -220,7 +228,6 @@ export default function StudentDashboard() {
                             )}
                         </div>
 
-                        {/* LinkedIn */}
                         <div className="flex flex-col gap-2">
                             <label className="font-medium" htmlFor="linkedin">
                                 LinkedIn URL
@@ -235,7 +242,6 @@ export default function StudentDashboard() {
                             />
                         </div>
 
-                        {/* GitHub */}
                         <div className="flex flex-col gap-2">
                             <label className="font-medium" htmlFor="github">
                                 GitHub URL

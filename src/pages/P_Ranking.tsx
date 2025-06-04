@@ -21,6 +21,10 @@ export default function PartnerRanking() {
     const [fetchLoading, setFetchLoading] = useState(true);
     const [submitSuccess, setSubmitSuccess] = useState(false);
 
+    //for displaying "signed in as" message
+    const [userName, setUserName] = useState<string>('');
+
+
     // Fetch company ID and students on mount
     useEffect(() => {
         async function fetchData() {
@@ -108,6 +112,27 @@ export default function PartnerRanking() {
         }
         
         fetchData();
+    }, []);
+
+    useEffect(() => {
+        async function fetchUserName() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data, error } = await supabase
+                    .from('User')
+                    .select('FirstName, Surname')
+                    .eq('Email', user.email)
+                    .single();
+
+                if (error) {
+                    console.error('Error fetching user name:', error);
+                } else if (data) {
+                    setUserName(`${data.FirstName} ${data.Surname}`);
+                }
+            }
+        }
+
+        fetchUserName();
     }, []);
 
     // Drag and drop handlers
@@ -232,9 +257,12 @@ export default function PartnerRanking() {
                         Interviewee Ranking
                     </NavLink>
 
-                    <div className="mt-auto pt-6">
-                        <NavLink to="/login"
-                                 className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600">
+                    <div className="mt-auto pt-6 flex flex-col items-center">
+                        <span className="mb-1.5 text-xs text-green-800">Signed in as {userName}</span>
+                        <NavLink
+                            to="/login"
+                            className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600"
+                        >
                             Log Out
                         </NavLink>
                     </div>

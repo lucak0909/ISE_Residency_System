@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-// @ts-ignore
 import { supabase } from '../helper/supabaseClient';
 
 // Define the Job interface
@@ -20,6 +19,28 @@ interface Job {
 function JobsBoard() {
     const [jobs, setJobs] = useState<Job[]>([]);
     const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+    const [userName, setUserName] = useState<string>('');
+
+    useEffect(() => {
+        async function fetchUserName() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data, error } = await supabase
+                    .from('User')
+                    .select('FirstName, Surname')
+                    .eq('Email', user.email)
+                    .single();
+
+                if (error) {
+                    console.error('Error fetching user name:', error);
+                } else if (data) {
+                    setUserName(`${data.FirstName} ${data.Surname}`);
+                }
+            }
+        }
+
+        fetchUserName();
+    }, []);
 
     useEffect(() => {
         async function fetchJobs() {
@@ -46,8 +67,6 @@ function JobsBoard() {
                     round: entry.ResidencyTerm ?? 'Unknown',
                     email: entry.Company?.Email ?? 'Unknown',
                     company: entry.Company?.CompanyName ?? 'Unknown',
-                    //company email - dont think we need this, hold on tho.
-
                     address: entry.Company?.Address ?? 'Unknown',
                     residency: entry.Company?.CompanyName ?? 'Unknown',
                 }));
@@ -84,7 +103,8 @@ function JobsBoard() {
                     <NavLink to="/StudentRanking2" className="rounded-md px-3 py-2 hover:bg-slate-700/50">
                         Post-Interview Ranking
                     </NavLink>
-                    <div className="mt-auto pt-6">
+                    <div className="mt-auto pt-6 flex flex-col items-center">
+                        <span className="mb-1.5 text-xs text-green-800">Signed in as {userName}</span>
                         <NavLink
                             to="/login"
                             className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600"

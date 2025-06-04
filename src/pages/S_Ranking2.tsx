@@ -16,6 +16,7 @@ export default function StudentRanking2() {
     const [submitting, setSubmitting] = useState(false);
     const [studentID, setStudentID] = useState<number | null>(null);
     const [submitted, setSubmitted] = useState(false);
+    const [userName, setUserName] = useState<string>('');
 
     // Fetch the current user's allocated companies on component mount
     useEffect(() => {
@@ -109,6 +110,27 @@ export default function StudentRanking2() {
 
         fetchAllocatedCompanies();
     }, []);
+    useEffect(() => {
+        async function fetchUserName() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data, error } = await supabase
+                    .from('User')
+                    .select('FirstName, Surname')
+                    .eq('Email', user.email)
+                    .single();
+
+                if (error) {
+                    console.error('Error fetching user name:', error);
+                } else if (data) {
+                    setUserName(`${data.FirstName} ${data.Surname}`);
+                }
+            }
+        }
+
+        fetchUserName();
+    }, []);
+
 
     const dragData = (e: React.DragEvent, company: Company) => {
         e.dataTransfer.setData("text/plain", JSON.stringify(company));
@@ -230,9 +252,12 @@ export default function StudentRanking2() {
                         Post-Interview Ranking
                     </NavLink>
 
-                    <div className="mt-auto pt-6">
-                        <NavLink to="/login"
-                                 className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600">
+                    <div className="mt-auto pt-6 flex flex-col items-center">
+                        <span className="mb-1.5 text-xs text-green-800">Signed in as {userName}</span>
+                        <NavLink
+                            to="/login"
+                            className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600"
+                        >
                             Log Out
                         </NavLink>
                     </div>

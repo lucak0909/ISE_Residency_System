@@ -31,6 +31,8 @@ export default function StudentRanking1() {
     const [companyMap, setCompanyMap] = useState<Map<string, number>>(new Map());
     const [submitSuccess, setSubmitSuccess] = useState(false);
     const [selectedResidency, setSelectedResidency] = useState<string>("All"); // Default to "All"
+    const [userName, setUserName] = useState<string>('');
+
 
     // Fetch student ID on component mount
     useEffect(() => {
@@ -159,6 +161,27 @@ export default function StudentRanking1() {
         }
 
         fetchCompanies();
+    }, []);
+
+    useEffect(() => {
+        async function fetchUserName() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data, error } = await supabase
+                    .from('User')
+                    .select('FirstName, Surname')
+                    .eq('Email', user.email)
+                    .single();
+
+                if (error) {
+                    console.error('Error fetching user name:', error);
+                } else if (data) {
+                    setUserName(`${data.FirstName} ${data.Surname}`);
+                }
+            }
+        }
+
+        fetchUserName();
     }, []);
 
     // Filter companies when residency period changes
@@ -327,9 +350,12 @@ export default function StudentRanking1() {
                         Post-Interview Ranking
                     </NavLink>
 
-                    <div className="mt-auto pt-6">
-                        <NavLink to="/login"
-                                 className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600">
+                    <div className="mt-auto pt-6 flex flex-col items-center">
+                        <span className="mb-1.5 text-xs text-green-800">Signed in as {userName}</span>
+                        <NavLink
+                            to="/login"
+                            className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600"
+                        >
                             Log Out
                         </NavLink>
                     </div>
