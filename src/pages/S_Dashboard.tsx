@@ -12,6 +12,69 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
+async function ensureBucketExists() {
+    try {
+        // Check if bucket exists
+        const { data: buckets } = await supabase.storage.listBuckets();
+        const bucketExists = buckets?.some(bucket => bucket.name === 'cvs');
+        
+        if (!bucketExists) {
+            console.log("Bucket 'cvs' doesn't exist, creating it...");
+            // Create the bucket with public access
+            const { data, error } = await supabase.storage.createBucket('cvs', {
+                public: true  // Make bucket public
+            });
+            
+            if (error) {
+                console.error("Error creating bucket:", error);
+            } else {
+                console.log("Bucket created successfully:", data);
+            }
+        } else {
+            console.log("Bucket 'cvs' already exists");
+        }
+    } catch (error) {
+        console.error("Error checking/creating bucket:", error);
+    }
+}
+
+async function verifyBucketAccess() {
+    try {
+        // List all buckets to verify access
+        const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+        
+        if (bucketsError) {
+            console.error("Error listing buckets:", bucketsError);
+            return false;
+        }
+        
+        console.log("Available buckets:", buckets.map(b => b.name));
+        
+        // Check if our bucket exists
+        const cvsBucket = buckets.find(b => b.name === 'cvs');
+        if (!cvsBucket) {
+            console.error("Bucket 'cvs' not found in available buckets");
+            return false;
+        }
+        
+        // Try to list files in the bucket root to verify permissions
+        const { data: files, error: listError } = await supabase.storage
+            .from('cvs')
+            .list();
+            
+        if (listError) {
+            console.error("Error listing files in 'cvs' bucket:", listError);
+            return false;
+        }
+        
+        console.log("Access to 'cvs' bucket verified, files at root:", files);
+        return true;
+    } catch (error) {
+        console.error("Error verifying bucket access:", error);
+        return false;
+    }
+}
+
 function FinalMatchDisplay() {
     const [matchedCompany, setMatchedCompany] = useState<{
         companyName: string;
@@ -98,7 +161,7 @@ export default function StudentDashboard() {
     const [linkedin, setLinkedin] = useState("");
     const [github, setGithub] = useState("");
     const [qca, setQca] = useState<number | null>(null);
-    const [yearOfStudy, setYearOfStudy] = useState<string>("");
+    const [yearOfStudy, setYearOfStudy] = useState("");
     const [loading, setLoading] = useState(true);
     const [userId, setUserId] = useState<number | null>(null);
     const [uploadingCV, setUploadingCV] = useState(false);
@@ -115,7 +178,13 @@ export default function StudentDashboard() {
         async function fetchStudentData() {
             try {
                 setLoading(true);
-
+                
+                // Verify bucket access
+                const bucketAccessible = await verifyBucketAccess();
+                if (!bucketAccessible) {
+                    console.error("Cannot access the 'cvs' bucket - check permissions");
+                }
+                
                 // Get the current user
                 const {data: {user}} = await supabase.auth.getUser();
 
@@ -168,16 +237,36 @@ export default function StudentDashboard() {
                             const fileName = pathParts[pathParts.length - 1];
                             setCurrentCVName(fileName);
 
-                            // Get the public URL for the CV file
-                            const { data: publicURL } = await supabase.storage
-                                .from('cvs')
-                                .getPublicUrl(cvData.FilePath);
-
-                            if (publicURL) {
-                                console.log("CV URL:", publicURL.publicUrl); // Add this for debugging
-                                setCurrentCVPath(publicURL.publicUrl);
-                            } else {
-                                console.log("Failed to get public URL for:", cvData.FilePath);
+                            // Get the public URL for the CV file - IMPROVED VERSION
+                            try {
+                                console.log("Attempting to get public URL for:", cvData.FilePath);
+                                
+                                // First, check if the file exists
+                                const { data: fileExists, error: fileCheckError } = await supabase.storage
+                                    .from('cvs')
+                                    .list(cvData.FilePath.split('/')[0]); // List files in the user's folder
+                                
+                                if (fileCheckError) {
+                                    console.error("Error checking if file exists:", fileCheckError);
+                                } else {
+                                    console.log("Files in directory:", fileExists);
+                                }
+                                
+                                // Try to get the public URL
+                                const { data, error: urlError } = await supabase.storage
+                                    .from('cvs')
+                                    .getPublicUrl(cvData.FilePath);
+                                
+                                if (urlError) {
+                                    console.error("Error getting public URL:", urlError);
+                                } else if (data && data.publicUrl) {
+                                    console.log("CV URL successfully retrieved:", data.publicUrl);
+                                    setCurrentCVPath(data.publicUrl);
+                                } else {
+                                    console.log("Failed to get public URL - no data returned");
+                                }
+                            } catch (error) {
+                                console.error("Exception getting public URL:", error);
                             }
                         }
                     }
@@ -218,16 +307,20 @@ export default function StudentDashboard() {
 
             // Handle CV file upload if a new file is selected
             if (cvFile) {
-                // 1. Upload file to storage bucket - MODIFIED PATH STRUCTURE
                 const fileName = `${userId}_${Date.now()}_${cvFile.name}`;
-                // Store files directly in the userId folder without additional nesting
+                // Make sure this path structure matches what you expect in the database
                 const filePath = `${userId}/${fileName}`;
 
+                console.log("Uploading file to path:", filePath);
+                
                 const { error: uploadError } = await supabase.storage
                     .from('cvs')
                     .upload(filePath, cvFile);
-
-                if (uploadError) throw uploadError;
+                
+                if (uploadError) {
+                    console.error("Upload error:", uploadError);
+                    throw uploadError;
+                }
 
                 try {
                     // First, check if a CV record already exists for this student
@@ -274,19 +367,47 @@ export default function StudentDashboard() {
                         }
                     }
 
-                    // Get the public URL for the CV file - MODIFIED TO USE CORRECT BUCKET NAME
-                    const { data: publicURL } = await supabase.storage
-                        .from('cvs')
-                        .getPublicUrl(filePath);
+                    // Get the public URL for the CV file - IMPROVED: Use the correct response structure
+                    try {
+                        console.log("Attempting to get public URL for:", filePath);
+                        
+                        // First, check if the file exists
+                        const { data: fileExists, error: fileCheckError } = await supabase.storage
+                            .from('cvs')
+                            .list(filePath.split('/')[0]); // List files in the user's folder
+                        
+                        if (fileCheckError) {
+                            console.error("Error checking if file exists:", fileCheckError);
+                        } else {
+                            console.log("Files in directory:", fileExists);
+                        }
+                        
+                        // Try to get the public URL
+                        const { data, error: urlError } = await supabase.storage
+                            .from('cvs')  // Make sure this matches exactly with your bucket name
+                            .getPublicUrl(filePath);
+                        
+                        if (urlError) {
+                            console.error("Error getting public URL:", urlError);
+                        } else if (data && data.publicUrl) {
+                            setCurrentCVPath(data.publicUrl);
+                            console.log("New CV URL:", data.publicUrl); // Debug log
+                            
+                            // Update the displayed CV name
+                            setCurrentCVName(fileName);
+                            setCvFile(null);
+                        } else {
+                            console.error("Failed to get public URL");
+                            throw new Error("Failed to get public URL for uploaded file");
+                        }
+                    } catch (error) {
+                        // If database operation fails, delete the uploaded file to avoid orphaned files
+                        await supabase.storage
+                            .from('cvs')
+                            .remove([filePath]);
 
-                    if (publicURL) {
-                        setCurrentCVPath(publicURL.publicUrl);
-                        console.log("New CV URL:", publicURL.publicUrl); // Debug log
+                        throw error;
                     }
-
-                    // Update the displayed CV name
-                    setCurrentCVName(fileName);
-                    setCvFile(null);
                 } catch (error) {
                     // If database operation fails, delete the uploaded file to avoid orphaned files
                     await supabase.storage
