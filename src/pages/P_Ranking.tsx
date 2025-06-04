@@ -251,7 +251,9 @@ export default function PartnerRanking() {
                              className="rounded-md px-3 py-2 hover:bg-slate-700/50">
                         Partner Dashboard
                     </NavLink>
-
+                    <NavLink to="/PartnerInterviewees" className="rounded-md px-3 py-2 hover:bg-slate-700/50">
+                        Your Interviewees
+                    </NavLink>
                     <NavLink to="/PartnerRanking"
                              className="rounded-md bg-indigo-600/20 px-3 py-2 font-semibold ring-2 ring-indigo-600/30">
                         Interviewee Ranking

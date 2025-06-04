@@ -6,6 +6,7 @@ import StudentRanking1   from './pages/S_Ranking1';
 import StudentRanking2   from './pages/S_Ranking2';
 import PartnerDashboard  from './pages/P_Dashboard';
 import PartnerRanking    from './pages/P_Ranking';
+import PartnerInterviewees from './pages/P_Interviewees';
 
 export default function Router() {
     return (
@@ -23,6 +24,7 @@ export default function Router() {
                 {/* partner area */}
                 <Route path="/PartnerDashboard" element={<PartnerDashboard />} />
                 <Route path="/PartnerRanking"  element={<PartnerRanking  />} />
+                <Route path="/PartnerInterviewees" element={<PartnerInterviewees />} />
 
                 {/* shortcuts / fall-backs */}
                 <Route path="/"         element={<Navigate to="/Login" />} />
