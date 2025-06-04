@@ -6,6 +6,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path=os.getenv("ENV_FILE"))
+
 # Setup Chrome WebDriver
 options = webdriver.ChromeOptions()
 options.add_argument('--headless')  # optional for Jenkins

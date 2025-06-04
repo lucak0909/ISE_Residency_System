@@ -2,6 +2,12 @@ import unittest
 from unittest.mock import patch
 from backend import interview_allocation, position_allocation
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path=os.getenv("ENV_FILE"))
+
+
 class TestEndToEnd(unittest.TestCase):
     @patch("backend.interview_allocation.supabase")
     def test_allocation_chain(self, mock_supabase):
