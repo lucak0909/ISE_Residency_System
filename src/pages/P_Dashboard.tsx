@@ -80,7 +80,7 @@ function MatchedStudentsDisplay({companyID}: { companyID: number | null }) {
     }, [companyID]);
 
     if (loadingMatches) {
-        return <p className="text-lg text-slate-300">Loading matched students...</p>;
+        return <p className="text-lg text-center text-slate-300">Loading matched students...</p>;
     }
 
     return (
@@ -374,9 +374,12 @@ export default function PartnerDashboard() {
                 <h1 className="mb-12 text-center text-4xl font-extrabold tracking-tight md:text-6xl">Partner
                     Dashboard</h1>
 
+                {/* Matched Students */}
+                <MatchedStudentsDisplay companyID={companyID}/>
+
                 {/* Job form */}
                 <section
-                    className="mx-auto w-full max-w-3xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-10">
+                    className="mt-10 mx-auto w-full max-w-3xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-10">
                     <h2 className="mb-6 text-2xl font-semibold">Create Job Listing</h2>
                     <form className="grid grid-cols-1 gap-6" onSubmit={handleSubmit}>
                         {/* Company name (read‑only) */}
@@ -450,7 +453,7 @@ export default function PartnerDashboard() {
                 {/* Preview */}
                 {jobsPreview.length > 0 && (
                     <section
-                        className="mx-auto mt-14 w-full max-w-5xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-10">
+                        className="mx-auto mt-10 w-full max-w-5xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-10">
                         <h2 className="mb-6 text-2xl font-semibold">Your Listings</h2>
                         <ul className="space-y-6">
                             {jobsPreview.map((job, idx) => (
@@ -469,9 +472,6 @@ export default function PartnerDashboard() {
                         </ul>
                     </section>
                 )}
-
-                {/* Matched Students */}
-                <MatchedStudentsDisplay companyID={companyID}/>
             </main>
         </div>
     );
