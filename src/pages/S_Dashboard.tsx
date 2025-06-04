@@ -3,44 +3,50 @@ import {NavLink} from 'react-router-dom';
 import {supabase} from "../helper/supabaseClient";
 
 function FinalMatchDisplay() {
-    const [matchedCompany, setMatchedCompany] = useState<{ companyName: string, position: string | null } | null>(null);
-    const [loadingMatch, setLoadingMatch] = useState(true);
+    const [matchedCompany, setMatchedCompany] = useState<{
+        companyName: string;
+        position: string | null;
+    } | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function fetchMatchData() {
             try {
-                // Get current user's email
+                setLoading(true);
+
+                // Get current user
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user?.email) return;
-                
-                // Get student ID from User table
+
+                // Get student ID
                 const { data: userData } = await supabase
                     .from('User')
                     .select('ID')
                     .eq('Email', user.email.toLowerCase())
-                    .maybeSingle();
-                
+                    .single();
+
                 if (!userData) return;
-                
-                // Get matched company from FinalMatches table
+
+                // Check for match in FinalMatches table
                 const { data: matchData } = await supabase
                     .from('FinalMatches')
                     .select(`
+                        CompanyID,
                         Company:CompanyID (
                             CompanyName
                         )
                     `)
                     .eq('StudentID', userData.ID)
                     .maybeSingle();
-                
-                // Get position title if available
-                const { data: positionData } = await supabase
-                    .from('Position')
-                    .select('Title')
-                    .eq('CompanyID', matchData?.CompanyID)
-                    .maybeSingle();
-                
-                if (matchData?.Company) {
+
+                if (matchData) {
+                    // Get position details
+                    const { data: positionData } = await supabase
+                        .from('Position')
+                        .select('Title')
+                        .eq('CompanyID', matchData.CompanyID)
+                        .maybeSingle();
+
                     setMatchedCompany({
                         companyName: matchData.Company.CompanyName || 'Unknown Company',
                         position: positionData?.Title || null
@@ -49,27 +55,30 @@ function FinalMatchDisplay() {
             } catch (error) {
                 console.error('Error fetching match data:', error);
             } finally {
-                setLoadingMatch(false);
+                setLoading(false);
             }
         }
-        
+
         fetchMatchData();
     }, []);
 
-    if (loadingMatch) {
-        return <p className="text-lg text-slate-300">Loading your match information...</p>;
+    if (loading) {
+        return <p className="text-lg text-slate-300">Loading match data...</p>;
     }
 
-    return matchedCompany ? (
-        <div className="space-y-2">
-            <p className="text-3xl font-bold text-indigo-400">{matchedCompany.companyName}</p>
-            {matchedCompany.position && (
-                <p className="text-xl text-slate-300">{matchedCompany.position}</p>
+    return (
+        <div>
+            {matchedCompany ? (
+                <div className="text-center">
+                    <h3 className="text-2xl font-bold text-indigo-400">{matchedCompany.companyName}</h3>
+                    {matchedCompany.position && (
+                        <p className="mt-2 text-lg text-slate-300">Position: {matchedCompany.position}</p>
+                    )}
+                </div>
+            ) : (
+                <p className="text-lg text-slate-300">No match has been made yet.</p>
             )}
-            <p className="mt-4 text-sm text-slate-400">Congratulations on your residency placement!</p>
         </div>
-    ) : (
-        <p className="text-lg text-slate-300">No residency match has been assigned yet.</p>
     );
 }
 
@@ -82,11 +91,16 @@ export default function StudentDashboard() {
     const [yearOfStudy, setYearOfStudy] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [userId, setUserId] = useState<number | null>(null);
+    const [uploadingCV, setUploadingCV] = useState(false);
+    const [currentCVName, setCurrentCVName] = useState<string | null>(null);
 
     // Available year of study options
     const yearOptions = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 
-    // Fetch student data on component mount
+    // Add this state variable to track the full URL path to the CV
+    const [currentCVPath, setCurrentCVPath] = useState<string | null>(null);
+
+    // Modify the fetchStudentData function to set the CV path
     useEffect(() => {
         async function fetchStudentData() {
             try {
@@ -110,7 +124,7 @@ export default function StudentDashboard() {
 
                     if (userData) {
                         setUserId(userData.ID);
-                        
+
                         // Now fetch the student record using the ID from User table
                         const {data: studentData, error: studentError} = await supabase
                             .from('Student')
@@ -126,6 +140,33 @@ export default function StudentDashboard() {
                             setLinkedin(studentData.LinkedIn || "");
                             setYearOfStudy(studentData.YearOfStudy || "");
                         }
+
+                        // Fetch the current CV information
+                        const {data: cvData, error: cvError} = await supabase
+                            .from('StudentCV')
+                            .select('FilePath')
+                            .eq('StudentID', userData.ID)
+                            .order('DateUploaded', { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+
+                        if (cvError) {
+                            console.error('Error fetching CV data:', cvError);
+                        } else if (cvData && cvData.FilePath) {
+                            // Extract filename from path
+                            const pathParts = cvData.FilePath.split('/');
+                            const fileName = pathParts[pathParts.length - 1];
+                            setCurrentCVName(fileName);
+
+                            // Get the public URL for the CV file
+                            const { data: publicURL } = await supabase.storage
+                                .from('cvs')
+                                .getPublicUrl(cvData.FilePath);
+
+                            if (publicURL) {
+                                setCurrentCVPath(publicURL.publicUrl);
+                            }
+                        }
                     }
                 }
             } catch (error) {
@@ -138,17 +179,20 @@ export default function StudentDashboard() {
         fetchStudentData();
     }, []);
 
+// Also update the handleSubmit function to set the CV path after upload
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        
+
         if (!userId) {
             alert("User ID not found. Please log in again.");
             return;
         }
-        
+
         try {
+            setUploadingCV(true);
+
             // Update student profile in the database
-            const { error } = await supabase
+            const { error: updateError } = await supabase
                 .from('Student')
                 .update({
                     GitHub: github,
@@ -156,20 +200,89 @@ export default function StudentDashboard() {
                     YearOfStudy: yearOfStudy
                 })
                 .eq('StudentID', userId);
-                
-            if (error) throw error;
-            
+
+            if (updateError) throw updateError;
+
             // Handle CV file upload if a new file is selected
             if (cvFile) {
-                // Upload logic would go here
-                // This is a placeholder for CV upload functionality
-                console.log("CV file would be uploaded:", cvFile.name);
+                // 1. Upload file to storage bucket
+                const fileName = `${userId}_${Date.now()}_${cvFile.name}`;
+                const filePath = `${userId}/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('cvs')
+                    .upload(filePath, cvFile);
+
+                if (uploadError) throw uploadError;
+
+                // 2. Check if a CV record already exists for this student
+                const { data: existingCV, error: checkError } = await supabase
+                    .from('StudentCV')
+                    .select('*')
+                    .eq('StudentID', userId)
+                    .maybeSingle();
+
+                if (checkError) {
+                    console.error('Error checking existing CV:', checkError);
+                    throw checkError;
+                }
+
+                // 3. Update or insert the CV record
+                let cvError;
+                if (existingCV) {
+                    // Update existing record
+                    const { error } = await supabase
+                        .from('StudentCV')
+                        .update({
+                            FilePath: filePath,
+                            DateUploaded: new Date().toISOString()
+                        })
+                        .eq('StudentID', userId);
+                    cvError = error;
+                } else {
+                    // Insert new record
+                    const { error } = await supabase
+                        .from('StudentCV')
+                        .insert({
+                            CVID: userId,
+                            FilePath: filePath,
+                            StudentID: userId,
+                            DateUploaded: new Date().toISOString()
+                        });
+                    cvError = error;
+                }
+
+                if (cvError) {
+                    console.error('CV record operation error:', cvError);
+                    
+                    // If operation fails, try to delete the uploaded file to avoid orphaned files
+                    await supabase.storage
+                        .from('cvs')
+                        .remove([filePath]);
+                    
+                    throw new Error(`Failed to update CV record: ${cvError.message}`);
+                }
+
+                // Get the public URL for the CV file
+                const { data: publicURL } = await supabase.storage
+                    .from('cvs')
+                    .getPublicUrl(filePath);
+
+                if (publicURL) {
+                    setCurrentCVPath(publicURL.publicUrl);
+                }
+
+                // Update the displayed CV name
+                setCurrentCVName(fileName);
+                setCvFile(null);
             }
-            
+
             alert("Profile updated successfully!");
         } catch (error: any) {
             console.error('Error updating profile:', error);
             alert(`Failed to update profile: ${error.message}`);
+        } finally {
+            setUploadingCV(false);
         }
     }
 
@@ -271,10 +384,17 @@ export default function StudentDashboard() {
                                 type="file"
                                 accept="application/pdf"
                                 onChange={(e) => setCvFile(e.target.files?.[0] ?? null)}
-                                className="cursor-pointer rounded-md border border-white/30 bg-slate-700/40 p-2 file:mr-4 file:rounded-md file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-white hover:file:bg-indigo-500"
+                                className="cursor-pointer rounded-md border border-white/30 bg-slate-700/40 p-2 file:mr-4 file:rounded-md file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-white"
                             />
-                            {cvFile && (
-                                <span className="text-sm text-slate-300">Selected: {cvFile.name}</span>
+                            {currentCVPath && (
+                                <div className="mt-2 text-sm text-green-400">
+                                    Current CV: <a href={currentCVPath} target="_blank" rel="noopener noreferrer" className="underline">View CV</a>
+                                </div>
+                            )}
+                            {uploadingCV && (
+                                <div className="mt-2 text-sm text-indigo-400">
+                                    Uploading CV...
+                                </div>
                             )}
                         </div>
 
