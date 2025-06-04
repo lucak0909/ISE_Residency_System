@@ -79,9 +79,14 @@ export default function StudentDashboard() {
     const [linkedin, setLinkedin] = useState("");
     const [github, setGithub] = useState("");
     const [qca, setQca] = useState<number | null>(null);
+    const [yearOfStudy, setYearOfStudy] = useState<string>("");
     const [loading, setLoading] = useState(true);
+    const [userId, setUserId] = useState<number | null>(null);
 
-    // Fetch student QCA on component mount
+    // Available year of study options
+    const yearOptions = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
+
+    // Fetch student data on component mount
     useEffect(() => {
         async function fetchStudentData() {
             try {
@@ -104,10 +109,12 @@ export default function StudentDashboard() {
                     }
 
                     if (userData) {
+                        setUserId(userData.ID);
+                        
                         // Now fetch the student record using the ID from User table
                         const {data: studentData, error: studentError} = await supabase
                             .from('Student')
-                            .select('QCA')
+                            .select('QCA, GitHub, LinkedIn, YearOfStudy')
                             .eq('StudentID', userData.ID)
                             .single();
 
@@ -115,6 +122,9 @@ export default function StudentDashboard() {
                             console.error('Error fetching student data:', studentError);
                         } else if (studentData) {
                             setQca(studentData.QCA);
+                            setGithub(studentData.GitHub || "");
+                            setLinkedin(studentData.LinkedIn || "");
+                            setYearOfStudy(studentData.YearOfStudy || "");
                         }
                     }
                 }
@@ -128,11 +138,39 @@ export default function StudentDashboard() {
         fetchStudentData();
     }, []);
 
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        // TODO: send FormData / JSON to backend
-        console.log({cvFile, linkedin, github});
-        alert("Profile saved (mock)");
+        
+        if (!userId) {
+            alert("User ID not found. Please log in again.");
+            return;
+        }
+        
+        try {
+            // Update student profile in the database
+            const { error } = await supabase
+                .from('Student')
+                .update({
+                    GitHub: github,
+                    LinkedIn: linkedin,
+                    YearOfStudy: yearOfStudy
+                })
+                .eq('StudentID', userId);
+                
+            if (error) throw error;
+            
+            // Handle CV file upload if a new file is selected
+            if (cvFile) {
+                // Upload logic would go here
+                // This is a placeholder for CV upload functionality
+                console.log("CV file would be uploaded:", cvFile.name);
+            }
+            
+            alert("Profile updated successfully!");
+        } catch (error: any) {
+            console.error('Error updating profile:', error);
+            alert(`Failed to update profile: ${error.message}`);
+        }
     }
 
     /*  render section  */
@@ -203,6 +241,26 @@ export default function StudentDashboard() {
                     <h2 className="mb-6 text-2xl font-semibold">Profile Details</h2>
 
                     <form className="space-y-6" onSubmit={handleSubmit}>
+                        {/* Year of Study dropdown */}
+                        <div className="flex flex-col gap-2">
+                            <label className="font-medium" htmlFor="yearOfStudy">
+                                Year of Study
+                            </label>
+                            <select
+                                id="yearOfStudy"
+                                value={yearOfStudy}
+                                onChange={(e) => setYearOfStudy(e.target.value)}
+                                className="rounded-md border border-white/30 bg-slate-700/40 p-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="">Select Year</option>
+                                {yearOptions.map((year) => (
+                                    <option key={year} value={year}>
+                                        {year}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
                         {/* CV upload */}
                         <div className="flex flex-col gap-2">
                             <label className="font-medium" htmlFor="cv">
