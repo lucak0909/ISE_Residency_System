@@ -478,9 +478,12 @@ export default function StudentDashboard() {
                         Post-Interview Ranking
                     </NavLink>
 
-                    <div className="mt-auto pt-6">
-                        <NavLink to="/login"
-                                 className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600">
+                    <div className="mt-auto pt-6 flex flex-col items-center">
+                        <span className="mb-1.5 text-xs text-green-800">Signed in as {userName}</span>
+                        <NavLink
+                            to="/login"
+                            className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600"
+                        >
                             Log Out
                         </NavLink>
                     </div>
