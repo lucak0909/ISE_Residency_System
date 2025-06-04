@@ -2,36 +2,55 @@ import {useState, useEffect} from "react";
 import {NavLink} from 'react-router-dom';
 import {supabase} from '../helper/supabaseClient';
 
-// Interface for company with ID mapping
+/**
+ * Interface defining the structure of a company object with ID mapping
+ * Used for both available companies and ranked companies
+ */
 interface CompanyWithID {
-    id: number;
-    name: string;
-    residencyPeriod: string;
+    id: number;           // Company's unique identifier
+    name: string;         // Company name
+    residencyPeriod: string; // Which residency period the company offers (R1, R2, etc.)
 }
 
-// Define residency period options
+/**
+ * Available residency period options for filtering
+ * "All" is a special option that shows companies from all periods
+ */
 const RESIDENCY_PERIODS = ["All", "R1", "R1+R2", "R2", "R3", "R4", "R5"];
 
+/**
+ * StudentRanking1 Component
+ * 
+ * This component allows students to rank companies for their initial preferences
+ * before interviews. Students can drag companies from the available list to their
+ * ranking list, reorder their rankings, and submit their preferences to the database.
+ */
 export default function StudentRanking1() {
-    const [available, setAvailable] = useState<CompanyWithID[]>([]);
-    const [allCompanies, setAllCompanies] = useState<CompanyWithID[]>([]);
-    const [ranking, setRanking] = useState<CompanyWithID[]>([]);
-    const [dragged, setDragged] = useState<CompanyWithID | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [submitting, setSubmitting] = useState(false);
-    const [studentID, setStudentID] = useState<number | null>(null);
-    const [submitSuccess, setSubmitSuccess] = useState(false);
-    const [selectedResidency, setSelectedResidency] = useState<string>("All");
-    const [userName, setUserName] = useState<string>('');
+    // State management for companies and UI
+    const [available, setAvailable] = useState<CompanyWithID[]>([]); // Companies available to rank
+    const [allCompanies, setAllCompanies] = useState<CompanyWithID[]>([]); // All companies (for filtering)
+    const [ranking, setRanking] = useState<CompanyWithID[]>([]); // Student's current ranking
+    const [dragged, setDragged] = useState<CompanyWithID | null>(null); // Currently dragged company
+    const [loading, setLoading] = useState(true); // Loading state for initial data fetch
+    const [error, setError] = useState<string | null>(null); // Error messages
+    const [submitting, setSubmitting] = useState(false); // Submission in progress flag
+    const [studentID, setStudentID] = useState<number | null>(null); // Current student's ID
+    const [submitSuccess, setSubmitSuccess] = useState(false); // Success message flag
+    const [selectedResidency, setSelectedResidency] = useState<string>("All"); // Selected filter
+    const [userName, setUserName] = useState<string>(''); // Student's name for display
 
-    // Fetch student ID on component mount
+    /**
+     * Effect: Fetch the current student's ID on component mount
+     * This ID is needed to submit rankings to the correct student record
+     */
     useEffect(() => {
         async function fetchStudentID() {
             try {
+                // Get current authenticated user
                 const {data: {user}} = await supabase.auth.getUser();
                 if (!user?.email) throw new Error("User not authenticated");
 
+                // Query User table to get the student's ID based on email
                 const {data: userData, error: userError} = await supabase
                     .from('User')
                     .select('ID')
@@ -41,6 +60,7 @@ export default function StudentRanking1() {
                 if (userError) throw userError;
                 if (!userData) throw new Error("User not found");
 
+                // Store student ID in state
                 setStudentID(userData.ID);
             } catch (err: any) {
                 console.error('Error fetching student ID:', err);
@@ -49,13 +69,17 @@ export default function StudentRanking1() {
         }
 
         fetchStudentID();
-    }, []);
+    }, []); // Empty dependency array means this runs once on mount
 
-    // Fetch companies from the database on component mount
+    /**
+     * Effect: Fetch available companies from the database
+     * This populates the list of companies that students can rank
+     */
     useEffect(() => {
         async function fetchCompanies() {
             try {
                 // First attempt: Try to get companies that have positions
+                // Join Position table with Company table to get company details
                 let {data, error} = await supabase
                     .from('Position')
                     .select('CompanyID, Company(CompanyID, CompanyName), ResidencyTerm')
@@ -75,6 +99,7 @@ export default function StudentRanking1() {
                         }));
 
                     // Remove duplicates (a company might have multiple positions)
+                    // Using Map to ensure uniqueness by company name
                     const uniqueCompanies = Array.from(
                         new Map(companies.map(item => [item.name, item])).values()
                     );
@@ -82,7 +107,7 @@ export default function StudentRanking1() {
                     setAllCompanies(uniqueCompanies);
                     setAvailable(uniqueCompanies);
                 } else {
-                    // Fallback: Try to get all companies directly
+                    // Fallback: Try to get all companies directly if no positions found
                     const {data: companyData, error: companyError} = await supabase
                         .from('Company')
                         .select('CompanyID, CompanyName');
@@ -95,13 +120,13 @@ export default function StudentRanking1() {
                             .map(company => ({
                                 id: company.CompanyID as number,
                                 name: company.CompanyName as string,
-                                residencyPeriod: "Unknown"
+                                residencyPeriod: "Unknown" // No position data, so residency period is unknown
                             }));
 
                         setAllCompanies(companies);
                         setAvailable(companies);
                     } else {
-                        // If still no data, use mock data
+                        // If still no data, use mock data for development/testing
                         const mockCompanies = Array.from({length: 5}, (_, i) => ({
                             id: i + 1,
                             name: `Company ${i + 1}`,
@@ -116,7 +141,8 @@ export default function StudentRanking1() {
             } catch (err: any) {
                 console.error('Error fetching companies:', err);
                 setError(err.message || "Failed to load companies");
-                // Fallback to mock data
+                
+                // Fallback to mock data on error
                 const mockCompanies = Array.from({length: 5}, (_, i) => ({
                     id: i + 1,
                     name: `Company ${i + 1}`,
@@ -131,12 +157,17 @@ export default function StudentRanking1() {
         }
 
         fetchCompanies();
-    }, []);
+    }, []); // Empty dependency array means this runs once on mount
 
+    /**
+     * Effect: Fetch the user's name for display in the UI
+     */
     useEffect(() => {
         async function fetchUserName() {
+            // Get current authenticated user
             const {data: {user}} = await supabase.auth.getUser();
             if (user) {
+                // Query User table to get first and last name
                 const {data, error} = await supabase
                     .from('User')
                     .select('FirstName, Surname')
@@ -146,40 +177,57 @@ export default function StudentRanking1() {
                 if (error) {
                     console.error('Error fetching user name:', error);
                 } else if (data) {
+                    // Combine first and last name for display
                     setUserName(`${data.FirstName} ${data.Surname}`);
                 }
             }
         }
 
         fetchUserName();
-    }, []);
+    }, []); // Empty dependency array means this runs once on mount
 
-    // Filter companies when residency period changes
+    /**
+     * Effect: Filter companies when residency period selection changes
+     * This updates the available companies list based on the selected filter
+     */
     useEffect(() => {
         if (selectedResidency === "All") {
-            // Show all companies
+            // Show all companies that aren't already in the ranking
             setAvailable(allCompanies
                 .filter(company => !ranking.some(rankedCompany => rankedCompany.id === company.id))
             );
         } else {
-            // Filter companies by selected residency period
+            // Filter companies by selected residency period and exclude ranked ones
             setAvailable(allCompanies
                 .filter(company => company.residencyPeriod === selectedResidency)
                 .filter(company => !ranking.some(rankedCompany => rankedCompany.id === company.id))
             );
         }
-    }, [selectedResidency, allCompanies, ranking]);
+    }, [selectedResidency, allCompanies, ranking]); // Re-run when these dependencies change
 
+    /**
+     * Set up drag data when a company is dragged
+     * Stores the company data in the drag event and updates the dragged state
+     */
     const dragData = (e: React.DragEvent, company: CompanyWithID) => {
         e.dataTransfer.setData("text/plain", JSON.stringify(company));
         setDragged(company);
     };
 
+    /**
+     * Allow drop by preventing the default behavior
+     * This is necessary for the drop event to fire
+     */
     const allowDrop = (e: React.DragEvent) => e.preventDefault();
 
+    /**
+     * Handle dropping a company into the ranking list
+     * Moves the company from available to ranking
+     */
     const dropToRanking = (e: React.DragEvent) => {
         e.preventDefault();
         try {
+            // Get company data from the drag event
             const companyData = e.dataTransfer.getData("text/plain");
             if (!companyData) return;
 
@@ -199,9 +247,14 @@ export default function StudentRanking1() {
         }
     };
 
+    /**
+     * Handle dropping a company back into the available list
+     * Moves the company from ranking to available
+     */
     const dropToAvailable = (e: React.DragEvent) => {
         e.preventDefault();
         try {
+            // Get company data from the drag event
             const companyData = e.dataTransfer.getData("text/plain");
             if (!companyData) return;
 
@@ -224,6 +277,10 @@ export default function StudentRanking1() {
         }
     };
 
+    /**
+     * Handle reordering companies within the ranking list
+     * Moves the dragged company to the position of the target company
+     */
     const handleReorder = (targetCompany: CompanyWithID) => {
         if (!dragged || dragged.id === targetCompany.id) return;
 

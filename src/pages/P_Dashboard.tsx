@@ -2,7 +2,13 @@ import {useState, useEffect} from 'react';
 import {NavLink} from 'react-router-dom';
 import {supabase} from '../helper/supabaseClient';
 
+/**
+ * MatchedStudentsDisplay component
+ * Displays students who have been matched with the company in the final allocation
+ * @param {number | null} companyID - The ID of the company to fetch matches for
+ */
 function MatchedStudentsDisplay({companyID}: { companyID: number | null }) {
+    // State to store matched student information
     const [matchedStudents, setMatchedStudents] = useState<Array<{
         studentName: string,
         studentEmail: string,
@@ -10,6 +16,10 @@ function MatchedStudentsDisplay({companyID}: { companyID: number | null }) {
     }>>([]);
     const [loadingMatches, setLoadingMatches] = useState(true);
 
+    /**
+     * Fetches students matched with this company from the database
+     * Combines data from FinalMatches, User, and Student tables
+     */
     useEffect(() => {
         async function fetchMatchedStudents() {
             if (!companyID) return;
@@ -33,7 +43,7 @@ function MatchedStudentsDisplay({companyID}: { companyID: number | null }) {
                     return;
                 }
 
-                // Extract student IDs
+                // Extract student IDs from the matches data
                 const studentIDs = matchesData.map(match => match.StudentID);
 
                 // Now fetch student details from User table
@@ -57,7 +67,7 @@ function MatchedStudentsDisplay({companyID}: { companyID: number | null }) {
                     console.error('Error fetching QCA data:', qcaError);
                 }
 
-                // Combine the data
+                // Combine the data from User and Student tables
                 const students = studentsData.map(user => {
                     const studentQCA = qcaData?.find(q => q.StudentID === user.ID)?.QCA || null;
                     return {
@@ -77,12 +87,14 @@ function MatchedStudentsDisplay({companyID}: { companyID: number | null }) {
         }
 
         fetchMatchedStudents();
-    }, [companyID]);
+    }, [companyID]); // Re-run when companyID changes
 
+    // Show loading state while fetching data
     if (loadingMatches) {
         return <p className="text-lg text-center text-slate-300">Loading matched students...</p>;
     }
 
+    // Render the matched students list or a message if none found
     return (
         <section className="mx-auto mt-14 w-full max-w-3xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-10">
             <h2 className="mb-6 text-2xl font-semibold">Matched Students</h2>
@@ -106,6 +118,10 @@ function MatchedStudentsDisplay({companyID}: { companyID: number | null }) {
     );
 }
 
+/**
+ * Interface for job listing preview
+ * Contains all the information displayed in the job preview section
+ */
 interface JobPreview {
     title: string;
     company: string;
@@ -114,30 +130,42 @@ interface JobPreview {
     salary: string;
     location: string;
     daysInPerson: number;
-    residencyTerm: string; // Updated interface to include residencyTerm
+    residencyTerm: string; // Specifies which residency term this position is for
 }
 
+/**
+ * PartnerDashboard component
+ * Main dashboard for company partners to manage their job listings and view matched students
+ */
 export default function PartnerDashboard() {
-    // ------------------------- State -------------------------
+    // ------------------------- State Management -------------------------
+    // Company information
     const [companyID, setCompanyID] = useState<number | null>(null);
     const [companyName, setCompanyName] = useState('');
+    
+    // Job listing form fields
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [contactEmail, setContactEmail] = useState('');
     const [salary, setSalary] = useState('');
     const [location, setLocation] = useState('');
     const [daysInPerson, setDaysInPerson] = useState<number>(0);
-    const [residencyTerm, setResidencyTerm] = useState('R1'); // Add this new state
+    const [residencyTerm, setResidencyTerm] = useState('R1'); // Default to R1
+    
+    // UI state
     const [loading, setLoading] = useState(false);
     const [jobsPreview, setJobsPreview] = useState<JobPreview[]>([]);
     const [userName, setUserName] = useState<string>('');
 
 
-    // ---------- Fetch CompanyID + CompanyName on mount ----------
+    /**
+     * Fetch company data on component mount
+     * Gets the company ID and name for the logged-in user
+     */
     useEffect(() => {
         const fetchCompanyData = async () => {
             try {
-                // Get current user
+                // Get current authenticated user
                 const {data: authData, error: authError} = await supabase.auth.getUser();
 
                 if (authError) {
@@ -152,7 +180,7 @@ export default function PartnerDashboard() {
 
                 console.log('User email:', authData.user.email);
 
-                // Get user record
+                // Get user record from User table using email
                 const {data: userRow, error: userError} = await supabase
                     .from('User')
                     .select('ID')
@@ -171,7 +199,7 @@ export default function PartnerDashboard() {
 
                 console.log('User ID:', userRow.ID);
 
-                // Get company record
+                // Get company record from Company table using user ID
                 const {data: compRow, error: compError} = await supabase
                     .from('Company')
                     .select('CompanyID, CompanyName')
@@ -190,7 +218,7 @@ export default function PartnerDashboard() {
 
                 console.log('Company data:', compRow);
 
-                // Set state
+                // Set company information in state
                 setCompanyID(compRow.CompanyID);
                 setCompanyName(compRow.CompanyName || '');
             } catch (err) {
@@ -199,13 +227,17 @@ export default function PartnerDashboard() {
         };
 
         fetchCompanyData();
-    }, []);
+    }, []); // Run once on component mount
 
-    // First, let's add a function to fetch existing positions
+    /**
+     * Fetch existing job position data when companyID is available
+     * Populates the form with existing data if a position exists
+     */
     useEffect(() => {
         const fetchExistingPosition = async () => {
             if (!companyID) return;
 
+            // Query Position table for this company's job listing
             const {data, error} = await supabase
                 .from('Position')
                 .select('*')
@@ -225,9 +257,9 @@ export default function PartnerDashboard() {
                 setSalary(data.Salary || '');
                 setLocation(data.Location || '');
                 setDaysInPerson(data.DaysInPerson || 0);
-                setResidencyTerm(data.ResidencyTerm || 'R1'); // Set residency term
+                setResidencyTerm(data.ResidencyTerm || 'R1');
 
-                // Add to preview
+                // Add to preview section
                 setJobsPreview([{
                     title: data.Title || '',
                     company: companyName,
@@ -236,7 +268,7 @@ export default function PartnerDashboard() {
                     salary: data.Salary || '',
                     location: data.Location || '',
                     daysInPerson: data.DaysInPerson || 0,
-                    residencyTerm: data.ResidencyTerm || 'R1' // Include residency term in preview
+                    residencyTerm: data.ResidencyTerm || 'R1'
                 }]);
             }
         };
@@ -244,13 +276,18 @@ export default function PartnerDashboard() {
         if (companyID) {
             fetchExistingPosition();
         }
-    }, [companyID, companyName]);
+    }, [companyID, companyName]); // Run when companyID or companyName changes
 
-    //fetch user name on mount
+    /**
+     * Fetch user's full name on component mount
+     * Displays the name in the sidebar
+     */
     useEffect(() => {
         async function fetchUserName() {
+            // Get current authenticated user
             const {data: {user}} = await supabase.auth.getUser();
             if (user) {
+                // Query User table for first and last name
                 const {data, error} = await supabase
                     .from('User')
                     .select('FirstName, Surname')
@@ -266,9 +303,12 @@ export default function PartnerDashboard() {
         }
 
         fetchUserName();
-    }, []);
+    }, []); // Run once on component mount
 
-    // --------------------- Helpers ---------------------
+    // --------------------- Helper Functions ---------------------
+    /**
+     * Resets the job listing form to default values
+     */
     const resetForm = () => {
         setTitle('');
         setDescription('');
@@ -276,10 +316,13 @@ export default function PartnerDashboard() {
         setSalary('');
         setLocation('');
         setDaysInPerson(0);
-        setResidencyTerm('R1'); // Reset residency term
+        setResidencyTerm('R1');
     };
 
-    // Then modify the handleSubmit function to use upsert instead of insert
+    /**
+     * Handles form submission to create or update a job listing
+     * Uses upsert to either insert a new record or update an existing one
+     */
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
