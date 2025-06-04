@@ -146,9 +146,17 @@ export default function StudentRanking2() {
             if (!companyData) return;
 
             const company = JSON.parse(companyData) as Company;
-            if (!company || ranking.some(c => c.CompanyID === company.CompanyID)) return;
+            
+            // Check if company already exists in ranking list
+            if (!company || ranking.some(c => c.CompanyID === company.CompanyID)) {
+                // If it already exists, don't add it again
+                return;
+            }
 
+            // Remove from available list
             setAvailable((a) => a.filter((c) => c.CompanyID !== company.CompanyID));
+            
+            // Add to ranking list
             setRanking((r) => [...r, company]);
             setDragged(null);
         } catch (error) {
@@ -179,12 +187,22 @@ export default function StudentRanking2() {
 
     const handleReorder = (targetCompany: Company) => {
         if (!dragged || dragged.CompanyID === targetCompany.CompanyID) return;
+        
         setRanking((r) => {
+            // First check if dragged company is already in the list
+            if (!r.some(c => c.CompanyID === dragged.CompanyID)) return r;
+            
+            // Create a new array without the dragged company
             const next = r.filter((c) => c.CompanyID !== dragged.CompanyID);
+            
+            // Find the index of the target company
             const idx = next.findIndex(c => c.CompanyID === targetCompany.CompanyID);
+            
+            // Insert the dragged company at that index
             next.splice(idx, 0, dragged);
             return next;
         });
+        
         setDragged(null);
     };
 
@@ -253,7 +271,7 @@ export default function StudentRanking2() {
                     </NavLink>
 
                     <div className="mt-auto pt-6 flex flex-col items-center">
-                        <span className="mb-1.5 text-xs text-green-800">Signed in as {userName}</span>
+                        <span className="mb-1.5 text-xs text-green-400">Signed in as {userName}</span>
                         <NavLink
                             to="/login"
                             className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600"
