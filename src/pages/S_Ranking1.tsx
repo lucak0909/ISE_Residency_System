@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { NavLink } from 'react-router-dom';
-import { supabase } from '../helper/supabaseClient';
+import {useState, useEffect} from "react";
+import {NavLink} from 'react-router-dom';
+import {supabase} from '../helper/supabaseClient';
 
 // Interface for company with ID mapping
 interface CompanyWithID {
@@ -29,10 +29,10 @@ export default function StudentRanking1() {
     useEffect(() => {
         async function fetchStudentID() {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
+                const {data: {user}} = await supabase.auth.getUser();
                 if (!user?.email) throw new Error("User not authenticated");
 
-                const { data: userData, error: userError } = await supabase
+                const {data: userData, error: userError} = await supabase
                     .from('User')
                     .select('ID')
                     .eq('Email', user.email.toLowerCase())
@@ -56,7 +56,7 @@ export default function StudentRanking1() {
         async function fetchCompanies() {
             try {
                 // First attempt: Try to get companies that have positions
-                let { data, error } = await supabase
+                let {data, error} = await supabase
                     .from('Position')
                     .select('CompanyID, Company(CompanyID, CompanyName), ResidencyTerm')
                     .order('CompanyID');
@@ -83,7 +83,7 @@ export default function StudentRanking1() {
                     setAvailable(uniqueCompanies);
                 } else {
                     // Fallback: Try to get all companies directly
-                    const { data: companyData, error: companyError } = await supabase
+                    const {data: companyData, error: companyError} = await supabase
                         .from('Company')
                         .select('CompanyID, CompanyName');
 
@@ -102,7 +102,7 @@ export default function StudentRanking1() {
                         setAvailable(companies);
                     } else {
                         // If still no data, use mock data
-                        const mockCompanies = Array.from({ length: 5 }, (_, i) => ({
+                        const mockCompanies = Array.from({length: 5}, (_, i) => ({
                             id: i + 1,
                             name: `Company ${i + 1}`,
                             residencyPeriod: RESIDENCY_PERIODS[Math.floor(Math.random() * (RESIDENCY_PERIODS.length - 1)) + 1]
@@ -117,7 +117,7 @@ export default function StudentRanking1() {
                 console.error('Error fetching companies:', err);
                 setError(err.message || "Failed to load companies");
                 // Fallback to mock data
-                const mockCompanies = Array.from({ length: 5 }, (_, i) => ({
+                const mockCompanies = Array.from({length: 5}, (_, i) => ({
                     id: i + 1,
                     name: `Company ${i + 1}`,
                     residencyPeriod: RESIDENCY_PERIODS[Math.floor(Math.random() * (RESIDENCY_PERIODS.length - 1)) + 1]
@@ -135,9 +135,9 @@ export default function StudentRanking1() {
 
     useEffect(() => {
         async function fetchUserName() {
-            const { data: { user } } = await supabase.auth.getUser();
+            const {data: {user}} = await supabase.auth.getUser();
             if (user) {
-                const { data, error } = await supabase
+                const {data, error} = await supabase
                     .from('User')
                     .select('FirstName, Surname')
                     .eq('Email', user.email)
@@ -260,7 +260,7 @@ export default function StudentRanking1() {
 
         try {
             // First, delete any existing rankings for this student
-            const { error: deleteError } = await supabase
+            const {error: deleteError} = await supabase
                 .from('StudentRank1')
                 .delete()
                 .eq('StudentID', studentID);
@@ -276,7 +276,7 @@ export default function StudentRanking1() {
 
             // Insert the new rankings
             if (rankingsData.length > 0) {
-                const { error: insertError } = await supabase
+                const {error: insertError} = await supabase
                     .from('StudentRank1')
                     .insert(rankingsData);
 
@@ -296,7 +296,8 @@ export default function StudentRanking1() {
 
     return (
         <div className="flex min-h-screen w-full bg-slate-900 text-white">
-            <aside className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6">
+            <aside
+                className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6">
                 <h2 className="text-2xl font-bold tracking-tight">Menu</h2>
 
                 <nav className="flex flex-1 flex-col gap-4 text-lg">
@@ -344,20 +345,20 @@ export default function StudentRanking1() {
                         Filter by Residency Period:
                     </label>
                     <select
-                      id="residency-select"
-                      value={selectedResidency}
-                      onChange={(e) => setSelectedResidency(e.target.value)}
-                      className="w-full max-w-md rounded-md border border-indigo-500/30 bg-slate-800 px-4 py-2 text-white shadow-md focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        id="residency-select"
+                        value={selectedResidency}
+                        onChange={(e) => setSelectedResidency(e.target.value)}
+                        className="w-full max-w-md rounded-md border border-indigo-500/30 bg-slate-800 px-4 py-2 text-white shadow-md focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                      {RESIDENCY_PERIODS.map((period) => (
-                        <option 
-                          key={period} 
-                          value={period} 
-                          className="bg-slate-800 text-white hover:bg-slate-700"
-                        >
-                          {period}
-                        </option>
-                      ))}
+                        {RESIDENCY_PERIODS.map((period) => (
+                            <option
+                                key={period}
+                                value={period}
+                                className="bg-slate-800 text-white hover:bg-slate-700"
+                            >
+                                {period}
+                            </option>
+                        ))}
                     </select>
                 </div>
 
@@ -393,7 +394,8 @@ export default function StudentRanking1() {
                                             className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70 flex justify-between items-center"
                                         >
                                             <span>{company.name}</span>
-                                            <span className="text-sm font-semibold text-indigo-300 ml-2">{company.residencyPeriod}</span>
+                                            <span
+                                                className="text-sm font-semibold text-indigo-300 ml-2">{company.residencyPeriod}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -422,7 +424,8 @@ export default function StudentRanking1() {
                                             className="flex cursor-grab items-center justify-between rounded-md border border-slate-600 bg-slate-800 p-4 hover:border-slate-400"
                                         >
                                             <span>{index + 1}. {company.name}</span>
-                                            <span className="rounded-full bg-indigo-500/20 px-3 py-1 text-sm text-indigo-300">
+                                            <span
+                                                className="rounded-full bg-indigo-500/20 px-3 py-1 text-sm text-indigo-300">
                                                 {company.residencyPeriod}
                                             </span>
                                         </div>

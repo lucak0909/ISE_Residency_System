@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { NavLink } from 'react-router-dom';
-import { supabase } from '../helper/supabaseClient';
+import {useState, useEffect} from "react";
+import {NavLink} from 'react-router-dom';
+import {supabase} from '../helper/supabaseClient';
 
 interface Student {
     ID: number;
@@ -14,7 +14,7 @@ export default function PartnerRanking() {
     const [availableStudents, setAvailableStudents] = useState<Student[]>([]);
     const [rankedStudents, setRankedStudents] = useState<Student[]>([]);
     const [dragged, setDragged] = useState<Student | null>(null);
-    
+
     // State for company ID and loading states
     const [companyID, setCompanyID] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
@@ -30,48 +30,48 @@ export default function PartnerRanking() {
         async function fetchData() {
             try {
                 // Get current user
-                const { data: { user } } = await supabase.auth.getUser();
+                const {data: {user}} = await supabase.auth.getUser();
                 if (!user?.email) return;
-                
+
                 // Get company ID from User table
-                const { data: userData } = await supabase
+                const {data: userData} = await supabase
                     .from('User')
                     .select('ID')
                     .eq('Email', user.email.toLowerCase())
                     .maybeSingle();
-                
+
                 if (userData) {
                     setCompanyID(userData.ID);
-                    
+
                     // Fetch students who have been allocated interviews with this company
-                    const { data: interviewData } = await supabase
+                    const {data: interviewData} = await supabase
                         .from('InterviewAllocated')
                         .select('StudentID')
                         .eq('CompanyID', userData.ID);
-                    
+
                     if (interviewData && interviewData.length > 0) {
                         // Get student details
                         const studentIDs = interviewData.map(item => item.StudentID);
-                        const { data: students } = await supabase
+                        const {data: students} = await supabase
                             .from('User')
                             .select('ID, FirstName, Surname')
                             .in('ID', studentIDs)
                             .eq('Role', 'student');
-                        
+
                         if (students) {
                             // Format student data with display names
                             const formattedStudents = students.map(student => ({
                                 ...student,
                                 displayName: `${student.FirstName} ${student.Surname}`
                             }));
-                            
+
                             // Check if rankings already exist
-                            const { data: existingRankings } = await supabase
+                            const {data: existingRankings} = await supabase
                                 .from('CompanyInterviewRank')
                                 .select('StudentID, Rank')
                                 .eq('CompanyID', userData.ID)
                                 .order('Rank');
-                            
+
                             if (existingRankings && existingRankings.length > 0) {
                                 // Restore previous rankings
                                 const ranked = existingRankings
@@ -79,9 +79,9 @@ export default function PartnerRanking() {
                                         return formattedStudents.find(s => s.ID === ranking.StudentID);
                                     })
                                     .filter(Boolean) as Student[];
-                                
+
                                 setRankedStudents(ranked);
-                                
+
                                 // Set remaining students as available
                                 const rankedIDs = ranked.map(s => s.ID);
                                 setAvailableStudents(
@@ -94,7 +94,7 @@ export default function PartnerRanking() {
                         }
                     } else {
                         // Fallback to mock data if no interviews allocated
-                        const mockStudents = Array.from({ length: 6 }, (_, i) => ({
+                        const mockStudents = Array.from({length: 6}, (_, i) => ({
                             ID: i + 1,
                             FirstName: `Student`,
                             Surname: `${i + 1}`,
@@ -110,15 +110,15 @@ export default function PartnerRanking() {
                 setFetchLoading(false);
             }
         }
-        
+
         fetchData();
     }, []);
 
     useEffect(() => {
         async function fetchUserName() {
-            const { data: { user } } = await supabase.auth.getUser();
+            const {data: {user}} = await supabase.auth.getUser();
             if (user) {
-                const { data, error } = await supabase
+                const {data, error} = await supabase
                     .from('User')
                     .select('FirstName, Surname')
                     .eq('Email', user.email)
@@ -146,7 +146,7 @@ export default function PartnerRanking() {
     const dropToRanking = (e: React.DragEvent) => {
         e.preventDefault();
         const studentId = parseInt(e.dataTransfer.getData("text/plain"), 10);
-        
+
         // Check if student ID is valid and not already in the ranked list
         if (!studentId || rankedStudents.some(s => s.ID === studentId)) return;
 
@@ -155,7 +155,7 @@ export default function PartnerRanking() {
 
         // Remove from available students
         setAvailableStudents(prev => prev.filter(s => s.ID !== studentId));
-        
+
         // Add to ranked students
         setRankedStudents(prev => [...prev, student]);
         setDragged(null);
@@ -164,7 +164,7 @@ export default function PartnerRanking() {
     const dropToAvailable = (e: React.DragEvent) => {
         e.preventDefault();
         const studentId = parseInt(e.dataTransfer.getData("text/plain"), 10);
-        
+
         // Check if student ID is valid and exists in the ranked list
         if (!studentId || !rankedStudents.some(s => s.ID === studentId)) return;
 
@@ -173,10 +173,10 @@ export default function PartnerRanking() {
 
         // Remove from ranked students
         setRankedStudents(prev => prev.filter(s => s.ID !== studentId));
-        
+
         // Add to available students if not already there
         if (!availableStudents.some(s => s.ID === studentId)) {
-            setAvailableStudents(prev => [...prev, student].sort((a, b) => 
+            setAvailableStudents(prev => [...prev, student].sort((a, b) =>
                 a.displayName?.localeCompare(b.displayName || '') || 0
             ));
         }
@@ -185,17 +185,17 @@ export default function PartnerRanking() {
 
     const handleReorder = (targetStudent: Student) => {
         if (!dragged || dragged.ID === targetStudent.ID) return;
-        
+
         setRankedStudents(prev => {
             // Check if dragged student is in the list
             if (!prev.some(s => s.ID === dragged.ID)) return prev;
-            
+
             // Create a new array without the dragged student
             const next = prev.filter(s => s.ID !== dragged.ID);
-            
+
             // Find the index of the target student
             const idx = next.findIndex(s => s.ID === targetStudent.ID);
-            
+
             // Insert the dragged student at that index
             next.splice(idx, 0, dragged);
             return next;
@@ -206,30 +206,30 @@ export default function PartnerRanking() {
     // Submit rankings to database
     const submitRankings = async () => {
         if (!companyID || rankedStudents.length === 0) return;
-        
+
         setLoading(true);
         setSubmitSuccess(false);
-        
+
         try {
             // First delete any existing rankings
             await supabase
                 .from('CompanyInterviewRank')
                 .delete()
                 .eq('CompanyID', companyID);
-            
+
             // Insert new rankings
             const rankings = rankedStudents.map((student, index) => ({
                 CompanyID: companyID,
                 StudentID: student.ID,
                 Rank: index + 1
             }));
-            
-            const { error } = await supabase
+
+            const {error} = await supabase
                 .from('CompanyInterviewRank')
                 .insert(rankings);
-                
+
             if (error) throw error;
-            
+
             setSubmitSuccess(true);
             setTimeout(() => setSubmitSuccess(false), 3000);
         } catch (error: any) {
@@ -335,11 +335,12 @@ export default function PartnerRanking() {
 
                                 <div className="mt-auto pt-6">
                                     {submitSuccess && (
-                                        <div className="mb-4 rounded-md bg-green-600/20 p-3 text-center text-green-400 ring-1 ring-green-500/30">
+                                        <div
+                                            className="mb-4 rounded-md bg-green-600/20 p-3 text-center text-green-400 ring-1 ring-green-500/30">
                                             Rankings saved successfully!
                                         </div>
                                     )}
-                                    
+
                                     <button
                                         onClick={submitRankings}
                                         disabled={rankedStudents.length === 0 || loading}
