@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
-import { NavLink } from 'react-router-dom';
-import { supabase } from '../helper/supabaseClient';
+import {useState, useEffect} from "react";
+import {NavLink} from 'react-router-dom';
+import {supabase} from '../helper/supabaseClient';
 
 // Define types for our data
 interface Company {
-  CompanyID: number;
-  CompanyName: string;
+    CompanyID: number;
+    CompanyName: string;
 }
 
 export default function StudentRanking2() {
@@ -25,14 +25,14 @@ export default function StudentRanking2() {
                 setLoading(true);
 
                 // 1. Get current user's email
-                const { data: { user } } = await supabase.auth.getUser();
+                const {data: {user}} = await supabase.auth.getUser();
                 if (!user?.email) {
                     console.error("No authenticated user found");
                     return;
                 }
 
                 // 2. Get student ID from User table
-                const { data: userData, error: userError } = await supabase
+                const {data: userData, error: userError} = await supabase
                     .from('User')
                     .select('ID')
                     .eq('Email', user.email.toLowerCase())
@@ -46,7 +46,7 @@ export default function StudentRanking2() {
                 setStudentID(userData.ID);
 
                 // 3. Get allocated companies from InterviewAllocated table
-                const { data: allocations, error: allocError } = await supabase
+                const {data: allocations, error: allocError} = await supabase
                     .from('InterviewAllocated')
                     .select('CompanyID')
                     .eq('StudentID', userData.ID);
@@ -64,7 +64,7 @@ export default function StudentRanking2() {
 
                 // 4. Get company details for each allocation
                 const companyIDs = allocations.map(a => a.CompanyID);
-                const { data: companies, error: compError } = await supabase
+                const {data: companies, error: compError} = await supabase
                     .from('Company')
                     .select('CompanyID, CompanyName')
                     .in('CompanyID', companyIDs);
@@ -75,7 +75,7 @@ export default function StudentRanking2() {
                 }
 
                 // 5. Check if student has already submitted rankings
-                const { data: existingRankings, error: rankError } = await supabase
+                const {data: existingRankings, error: rankError} = await supabase
                     .from('StudentInterviewRank')
                     .select('CompanyID, Rank')
                     .eq('StudentID', userData.ID)
@@ -112,9 +112,9 @@ export default function StudentRanking2() {
     }, []);
     useEffect(() => {
         async function fetchUserName() {
-            const { data: { user } } = await supabase.auth.getUser();
+            const {data: {user}} = await supabase.auth.getUser();
             if (user) {
-                const { data, error } = await supabase
+                const {data, error} = await supabase
                     .from('User')
                     .select('FirstName, Surname')
                     .eq('Email', user.email)
@@ -224,7 +224,7 @@ export default function StudentRanking2() {
                 Rank: index + 1
             }));
 
-            const { error } = await supabase
+            const {error} = await supabase
                 .from('StudentInterviewRank')
                 .insert(rankingData);
 
@@ -342,8 +342,10 @@ export default function StudentRanking2() {
                                                     className="cursor-grab rounded-md border border-white/40 px-5 py-4 hover:border-white/60 active:opacity-70 bg-slate-800 shadow-lg"
                                                 >
                                                     <div className="flex items-center">
-                                                        <span className="text-xl font-semibold">{i + 1}. {company.CompanyName}</span>
-                                                        <span className="ml-auto text-sm font-medium bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full">
+                                                        <span
+                                                            className="text-xl font-semibold">{i + 1}. {company.CompanyName}</span>
+                                                        <span
+                                                            className="ml-auto text-sm font-medium bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full">
                                                             R1+R2
                                                         </span>
                                                     </div>

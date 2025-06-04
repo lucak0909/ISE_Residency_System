@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
-import { NavLink } from 'react-router-dom';
-import { supabase } from "../helper/supabaseClient";
+import {useState, useEffect} from "react";
+import {NavLink} from 'react-router-dom';
+import {supabase} from "../helper/supabaseClient";
 
 async function verifyBucketAccess() {
     try {
         // List all buckets to verify access
-        const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+        const {data: buckets, error: bucketsError} = await supabase.storage.listBuckets();
 
         if (bucketsError) {
             console.error("Error listing buckets:", bucketsError);
@@ -22,7 +22,7 @@ async function verifyBucketAccess() {
         }
 
         // Try to list files in the bucket root to verify permissions
-        const { data: files, error: listError } = await supabase.storage
+        const {data: files, error: listError} = await supabase.storage
             .from('cvs')
             .list();
 
@@ -52,11 +52,11 @@ function FinalMatchDisplay() {
                 setLoading(true);
 
                 // Get current user
-                const { data: { user } } = await supabase.auth.getUser();
+                const {data: {user}} = await supabase.auth.getUser();
                 if (!user?.email) return;
 
                 // Get student ID
-                const { data: userData } = await supabase
+                const {data: userData} = await supabase
                     .from('User')
                     .select('ID')
                     .eq('Email', user.email.toLowerCase())
@@ -65,7 +65,7 @@ function FinalMatchDisplay() {
                 if (!userData) return;
 
                 // Check for match in FinalMatches table
-                const { data: matchData } = await supabase
+                const {data: matchData} = await supabase
                     .from('FinalMatches')
                     .select(`
                         CompanyID,
@@ -78,7 +78,7 @@ function FinalMatchDisplay() {
 
                 if (matchData) {
                     // Get position details
-                    const { data: positionData } = await supabase
+                    const {data: positionData} = await supabase
                         .from('Position')
                         .select('Title')
                         .eq('CompanyID', matchData.CompanyID)
@@ -138,9 +138,9 @@ export default function StudentDashboard() {
 
     useEffect(() => {
         async function fetchUserName() {
-            const { data: { user } } = await supabase.auth.getUser();
+            const {data: {user}} = await supabase.auth.getUser();
             if (user) {
-                const { data, error } = await supabase
+                const {data, error} = await supabase
                     .from('User')
                     .select('FirstName, Surname')
                     .eq('Email', user.email)
@@ -208,7 +208,7 @@ export default function StudentDashboard() {
                             .from('StudentCV')
                             .select('FilePath')
                             .eq('StudentID', userData.ID)
-                            .order('DateUploaded', { ascending: false })
+                            .order('DateUploaded', {ascending: false})
                             .limit(1)
                             .maybeSingle();
 
@@ -225,7 +225,7 @@ export default function StudentDashboard() {
                                 console.log("Attempting to get public URL for:", cvData.FilePath);
 
                                 // Try to get the public URL
-                                const { data, error: urlError } = await supabase.storage
+                                const {data, error: urlError} = await supabase.storage
                                     .from('cvs')
                                     .getPublicUrl(cvData.FilePath);
 
@@ -265,7 +265,7 @@ export default function StudentDashboard() {
             setUploadingCV(true);
 
             // Update student profile in the database
-            const { error: updateError } = await supabase
+            const {error: updateError} = await supabase
                 .from('Student')
                 .update({
                     GitHub: github,
@@ -283,7 +283,7 @@ export default function StudentDashboard() {
 
                 console.log("Uploading file to path:", filePath);
 
-                const { error: uploadError } = await supabase.storage
+                const {error: uploadError} = await supabase.storage
                     .from('cvs')
                     .upload(filePath, cvFile);
 
@@ -294,7 +294,7 @@ export default function StudentDashboard() {
 
                 try {
                     // First, check if a CV record already exists for this student
-                    const { data: existingCV, error: checkError } = await supabase
+                    const {data: existingCV, error: checkError} = await supabase
                         .from('StudentCV')
                         .select('CVID')
                         .eq('StudentID', userId)
@@ -306,7 +306,7 @@ export default function StudentDashboard() {
 
                     // If a record exists, update it using the CVID as the primary key
                     if (existingCV) {
-                        const { error: updateError } = await supabase
+                        const {error: updateError} = await supabase
                             .from('StudentCV')
                             .update({
                                 FilePath: filePath,
@@ -322,7 +322,7 @@ export default function StudentDashboard() {
                         // If no record exists, insert a new one
                         const newCVID = Date.now();
 
-                        const { error: insertError } = await supabase
+                        const {error: insertError} = await supabase
                             .from('StudentCV')
                             .insert({
                                 CVID: newCVID,
@@ -342,7 +342,7 @@ export default function StudentDashboard() {
                         console.log("Attempting to get public URL for:", filePath);
 
                         // Try to get the public URL
-                        const { data, error: urlError } = await supabase.storage
+                        const {data, error: urlError} = await supabase.storage
                             .from('cvs')
                             .getPublicUrl(filePath);
 
@@ -447,9 +447,10 @@ export default function StudentDashboard() {
                 </section>
 
                 {/* Final Match Display */}
-                <section className="mx-auto mb-12 w-full max-w-xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-8 text-center">
+                <section
+                    className="mx-auto mb-12 w-full max-w-xl rounded-xl border border-slate-500/60 bg-slate-800/25 p-8 text-center">
                     <h2 className="mb-3 text-2xl font-semibold">Your Residency Match</h2>
-                    <FinalMatchDisplay />
+                    <FinalMatchDisplay/>
                 </section>
 
                 {/* Profile form */}
@@ -509,9 +510,12 @@ export default function StudentDashboard() {
                                             rel="noopener noreferrer"
                                             className="flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                                <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
-                                                <path d="M8 11a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1zm0-3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-5 w-5"
+                                                 viewBox="0 0 20 20" fill="currentColor">
+                                                <path
+                                                    d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/>
+                                                <path
+                                                    d="M8 11a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1zm0-3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
                                             </svg>
                                             View CV
                                         </a>

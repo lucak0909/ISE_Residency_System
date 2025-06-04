@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import { supabase } from '../helper/supabaseClient';
+import {useEffect, useState} from 'react';
+import {NavLink} from 'react-router-dom';
+import {supabase} from '../helper/supabaseClient';
 
 // Define the Job interface
 interface Job {
@@ -23,9 +23,9 @@ function JobsBoard() {
 
     useEffect(() => {
         async function fetchUserName() {
-            const { data: { user } } = await supabase.auth.getUser();
+            const {data: {user}} = await supabase.auth.getUser();
             if (user) {
-                const { data, error } = await supabase
+                const {data, error} = await supabase
                     .from('User')
                     .select('FirstName, Surname')
                     .eq('Email', user.email)
@@ -44,7 +44,7 @@ function JobsBoard() {
 
     useEffect(() => {
         async function fetchJobs() {
-            const { data, error } = await supabase
+            const {data, error} = await supabase
                 .from('Position')
                 .select(`
                     *,  
@@ -73,6 +73,7 @@ function JobsBoard() {
                 setJobs(formattedJobs);
             }
         }
+
         fetchJobs();
     }, []);
 
@@ -85,7 +86,8 @@ function JobsBoard() {
     return (
         <div className="flex min-h-screen w-full bg-slate-900 text-white">
             {/* Sidebar */}
-            <aside className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6 backdrop-blur-xl">
+            <aside
+                className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6 backdrop-blur-xl">
                 <h2 className="text-2xl font-bold tracking-tight">Menu</h2>
                 <nav className="flex flex-1 flex-col gap-4 text-lg">
                     <NavLink
@@ -129,7 +131,8 @@ function JobsBoard() {
                                     className="text-left rounded-2xl border border-slate-700 bg-slate-800 p-6 shadow-lg hover:shadow-xl transition-shadow"
                                 >
                                     <div className="flex justify-between items-center mb-2">
-                                        <span className="text-sm font-medium bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full">
+                                        <span
+                                            className="text-sm font-medium bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full">
                                             {job.round}
                                         </span>
                                         <span className="text-sm font-semibold text-slate-400">{job.company}</span>
@@ -137,7 +140,8 @@ function JobsBoard() {
                                     <h3 className="text-xl font-bold mb-3">{job.title}</h3>
                                     <ul className="text-sm text-slate-300 space-y-1">
                                         <li><strong className="text-white">Email:</strong> {job.email}</li>
-                                        <li><strong className="text-white">Residency Title:</strong> {job.residency}</li>
+                                        <li><strong className="text-white">Residency Title:</strong> {job.residency}
+                                        </li>
                                         <li><strong className="text-white">Salary:</strong> {job.salary}</li>
                                         <li><strong className="text-white">Location:</strong> {job.location}</li>
                                     </ul>
@@ -160,16 +164,16 @@ function JobsBoard() {
                             <h2 className="text-2xl font-bold mb-2">{selectedJob.title}</h2>
                             <p className="text-slate-400 mb-4">{selectedJob.company} — {selectedJob.round}</p>
                             <p className="text-white mb-4">
-                                <strong>Job Description:</strong><br />
+                                <strong>Job Description:</strong><br/>
                                 {selectedJob.description}
                             </p>
                             <p className="text-sm text-slate-300">
-                                <strong>Email:</strong> {selectedJob.email}<br />
-                                <strong>Residency:</strong> {selectedJob.residency}<br />
-                                <strong>Salary:</strong> {selectedJob.salary}<br />
-                                <strong>Location:</strong> {selectedJob.location}<br />
-                                <strong>Days In Person:</strong> {selectedJob.daysInPerson}<br />
-                                <strong>Company Address:</strong> {selectedJob.address}<br />
+                                <strong>Email:</strong> {selectedJob.email}<br/>
+                                <strong>Residency:</strong> {selectedJob.residency}<br/>
+                                <strong>Salary:</strong> {selectedJob.salary}<br/>
+                                <strong>Location:</strong> {selectedJob.location}<br/>
+                                <strong>Days In Person:</strong> {selectedJob.daysInPerson}<br/>
+                                <strong>Company Address:</strong> {selectedJob.address}<br/>
                             </p>
                         </div>
                     </div>
