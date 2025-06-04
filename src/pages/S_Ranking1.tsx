@@ -2,18 +2,11 @@ import { useState, useEffect } from "react";
 import { NavLink } from 'react-router-dom';
 import { supabase } from '../helper/supabaseClient';
 
-// This interface should match your actual database structure
-interface CompanyData {
-    CompanyID?: number;
-    CompanyName?: string;
-    // Add other fields that might be in your company table
-}
-
 // Interface for company with ID mapping
 interface CompanyWithID {
     id: number;
     name: string;
-    residencyPeriod: string; // Add residency period
+    residencyPeriod: string;
 }
 
 // Define residency period options
@@ -21,18 +14,16 @@ const RESIDENCY_PERIODS = ["All", "R1", "R1+R2", "R2", "R3", "R4", "R5"];
 
 export default function StudentRanking1() {
     const [available, setAvailable] = useState<CompanyWithID[]>([]);
-    const [allCompanies, setAllCompanies] = useState<CompanyWithID[]>([]); // Store all companies with their data
+    const [allCompanies, setAllCompanies] = useState<CompanyWithID[]>([]);
     const [ranking, setRanking] = useState<CompanyWithID[]>([]);
     const [dragged, setDragged] = useState<CompanyWithID | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [studentID, setStudentID] = useState<number | null>(null);
-    const [companyMap, setCompanyMap] = useState<Map<string, number>>(new Map());
     const [submitSuccess, setSubmitSuccess] = useState(false);
-    const [selectedResidency, setSelectedResidency] = useState<string>("All"); // Default to "All"
+    const [selectedResidency, setSelectedResidency] = useState<string>("All");
     const [userName, setUserName] = useState<string>('');
-
 
     // Fetch student ID on component mount
     useEffect(() => {
@@ -67,23 +58,20 @@ export default function StudentRanking1() {
                 // First attempt: Try to get companies that have positions
                 let { data, error } = await supabase
                     .from('Position')
-                    .select('CompanyID, Company(CompanyID, CompanyName), ResidencyTerm') // Changed from ResidencyPeriod to ResidencyTerm
+                    .select('CompanyID, Company(CompanyID, CompanyName), ResidencyTerm')
                     .order('CompanyID');
 
                 if (error) throw error;
 
                 // If we got data with the join query
                 if (data && data.length > 0) {
-                    // Create a map of company names to IDs
-                    const newCompanyMap = new Map<string, number>();
-
                     // Extract unique company names and their IDs with residency periods
                     const companies = data
                         .filter(item => item.Company?.CompanyName && item.Company?.CompanyID)
                         .map(item => ({
                             id: item.Company.CompanyID as number,
                             name: item.Company.CompanyName as string,
-                            residencyPeriod: item.ResidencyTerm || "Unknown" // Changed from ResidencyPeriod to ResidencyTerm
+                            residencyPeriod: item.ResidencyTerm || "Unknown"
                         }));
 
                     // Remove duplicates (a company might have multiple positions)
@@ -92,15 +80,6 @@ export default function StudentRanking1() {
                     );
 
                     setAllCompanies(uniqueCompanies);
-
-                    // Create company map for ID lookup
-                    uniqueCompanies.forEach(company => {
-                        newCompanyMap.set(company.name, company.id);
-                    });
-
-                    setCompanyMap(newCompanyMap);
-
-                    // Set available companies based on the default filter (All)
                     setAvailable(uniqueCompanies);
                 } else {
                     // Fallback: Try to get all companies directly
@@ -111,24 +90,15 @@ export default function StudentRanking1() {
                     if (companyError) throw companyError;
 
                     if (companyData && companyData.length > 0) {
-                        // Create a map of company names to IDs
-                        const newCompanyMap = new Map<string, number>();
-
                         const companies = companyData
                             .filter(company => company.CompanyName && company.CompanyID)
                             .map(company => ({
                                 id: company.CompanyID as number,
                                 name: company.CompanyName as string,
-                                residencyPeriod: "Unknown" // Default when we don't have residency data
+                                residencyPeriod: "Unknown"
                             }));
 
                         setAllCompanies(companies);
-
-                        companies.forEach(company => {
-                            newCompanyMap.set(company.name, company.id);
-                        });
-
-                        setCompanyMap(newCompanyMap);
                         setAvailable(companies);
                     } else {
                         // If still no data, use mock data
@@ -326,7 +296,7 @@ export default function StudentRanking1() {
 
     return (
         <div className="flex min-h-screen w-full bg-slate-900 text-white">
-            <aside className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6 backdrop-blur-xl">
+            <aside className="sticky top-0 flex h-screen w-60 flex-col gap-6 border-r border-slate-700/60 bg-slate-800/60 p-6">
                 <h2 className="text-2xl font-bold tracking-tight">Menu</h2>
 
                 <nav className="flex flex-1 flex-col gap-4 text-lg">
@@ -438,7 +408,7 @@ export default function StudentRanking1() {
                             className="flex h-full min-h-[400px] flex-col rounded-xl border border-slate-500/60 bg-slate-800/25 p-6"
                         >
                             <h2 className="mb-6 text-2xl font-semibold">Your Ranking</h2>
-                            <div className="flex-1 space-y-3 mb-8"> {/* Added mb-8 for more space */}
+                            <div className="flex-1 space-y-3 mb-8">
                                 {ranking.length === 0 ? (
                                     <p className="text-slate-400">Drag companies here to rank them.</p>
                                 ) : (

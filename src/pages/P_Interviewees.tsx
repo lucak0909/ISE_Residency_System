@@ -5,6 +5,7 @@ import { NavLink } from 'react-router-dom';
 export default function P_Interviewees() {
     const [interviewees, setInterviewees] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
+    const [userName, setUserName] = useState<string>('');
 
     useEffect(() => {
         async function fetchInterviewees() {
@@ -33,13 +34,32 @@ export default function P_Interviewees() {
                 if (interviewData && interviewData.length > 0) {
                     // Get student details
                     const studentIDs = interviewData.map(item => item.StudentID);
+                    
+                    // First, get student data
                     const { data: students } = await supabase
                         .from('Student')
                         .select('StudentID, QCA, GitHub, LinkedIn, YearOfStudy')
                         .in('StudentID', studentIDs);
 
-                    if (students) {
-                        setInterviewees(students);
+                    if (students && students.length > 0) {
+                        // Then, get user data for these students
+                        const { data: usersData } = await supabase
+                            .from('User')
+                            .select('ID, FirstName, Surname')
+                            .in('ID', studentIDs);
+
+                        // Combine the data
+                        const formattedStudents = students.map(student => {
+                            const userData = usersData?.find(user => user.ID === student.StudentID);
+                            return {
+                                ...student,
+                                FirstName: userData?.FirstName || 'Unknown',
+                                Surname: userData?.Surname || 'Student',
+                                displayName: userData ? `${userData.FirstName} ${userData.Surname}` : `Student ${student.StudentID}`
+                            };
+                        });
+                        
+                        setInterviewees(formattedStudents);
                     }
                 }
             } catch (error) {
@@ -50,6 +70,27 @@ export default function P_Interviewees() {
         }
 
         fetchInterviewees();
+    }, []);
+
+    useEffect(() => {
+        async function fetchUserName() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data, error } = await supabase
+                    .from('User')
+                    .select('FirstName, Surname')
+                    .eq('Email', user.email)
+                    .single();
+
+                if (error) {
+                    console.error('Error fetching user name:', error);
+                } else if (data) {
+                    setUserName(`${data.FirstName} ${data.Surname}`);
+                }
+            }
+        }
+
+        fetchUserName();
     }, []);
 
     return (
@@ -66,7 +107,8 @@ export default function P_Interviewees() {
                     <NavLink to="/PartnerRanking" className="rounded-md px-3 py-2 hover:bg-slate-700/50">
                         Interviewee Ranking
                     </NavLink>
-                    <div className="mt-auto pt-6">
+                    <div className="mt-auto pt-6 flex flex-col items-center">
+                        <span className="mb-1.5 text-xs text-green-400">Signed in as {userName}</span>
                         <NavLink to="/login" className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600">
                             Log Out
                         </NavLink>
@@ -89,7 +131,7 @@ export default function P_Interviewees() {
                             <ul className="space-y-4">
                                 {interviewees.map((student) => (
                                     <li key={student.StudentID} className="rounded-lg border border-white/30 p-6">
-                                        <h3 className="text-xl font-bold text-indigo-400">Student ID: {student.StudentID}</h3>
+                                        <h3 className="text-xl font-bold text-indigo-400">{student.displayName}</h3>
                                         <p className="text-sm text-slate-300">QCA: {student.QCA}</p>
                                         <p className="text-sm text-slate-300">Year of Study: {student.YearOfStudy}</p>
                                         <p className="text-sm text-slate-300">GitHub: <a href={student.GitHub} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">{student.GitHub}</a></p>
@@ -111,4 +153,7 @@ interface Student {
     GitHub: string | null;
     LinkedIn: string | null;
     YearOfStudy: string | null;
+    FirstName?: string;
+    Surname?: string;
+    displayName?: string;
 }

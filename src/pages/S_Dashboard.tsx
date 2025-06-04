@@ -1,42 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink } from 'react-router-dom';
 import { supabase } from "../helper/supabaseClient";
-import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
-import 'react-pdf/dist/esm/Page/TextLayer.css';
-
-// Set up the worker for PDF.js using a local worker
-// This avoids CORS issues with CDN-hosted workers
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url,
-).toString();
-
-async function ensureBucketExists() {
-    try {
-        // Check if bucket exists
-        const { data: buckets } = await supabase.storage.listBuckets();
-        const bucketExists = buckets?.some(bucket => bucket.name === 'cvs');
-
-        if (!bucketExists) {
-            console.log("Bucket 'cvs' doesn't exist, creating it...");
-            // Create the bucket with public access
-            const { data, error } = await supabase.storage.createBucket('cvs', {
-                public: true  // Make bucket public
-            });
-
-            if (error) {
-                console.error("Error creating bucket:", error);
-            } else {
-                console.log("Bucket created successfully:", data);
-            }
-        } else {
-            console.log("Bucket 'cvs' already exists");
-        }
-    } catch (error) {
-        console.error("Error checking/creating bucket:", error);
-    }
-}
 
 async function verifyBucketAccess() {
     try {
@@ -166,15 +130,12 @@ export default function StudentDashboard() {
     const [userId, setUserId] = useState<number | null>(null);
     const [uploadingCV, setUploadingCV] = useState(false);
     const [currentCVName, setCurrentCVName] = useState<string | null>(null);
+    const [currentCVPath, setCurrentCVPath] = useState<string | null>(null);
+    const [userName, setUserName] = useState('');
 
     // Available year of study options
     const yearOptions = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
-    const [userName, setUserName] = useState<string>('');
 
-    // Add this state variable to track the full URL path to the CV
-    const [currentCVPath, setCurrentCVPath] = useState<string | null>(null);
-
-    // Modify the fetchStudentData function to set the CV path
     useEffect(() => {
         async function fetchUserName() {
             const { data: { user } } = await supabase.auth.getUser();
@@ -259,20 +220,9 @@ export default function StudentDashboard() {
                             const fileName = pathParts[pathParts.length - 1];
                             setCurrentCVName(fileName);
 
-                            // Get the public URL for the CV file - IMPROVED VERSION
+                            // Get the public URL for the CV file
                             try {
                                 console.log("Attempting to get public URL for:", cvData.FilePath);
-
-                                // First, check if the file exists
-                                const { data: fileExists, error: fileCheckError } = await supabase.storage
-                                    .from('cvs')
-                                    .list(cvData.FilePath.split('/')[0]); // List files in the user's folder
-
-                                if (fileCheckError) {
-                                    console.error("Error checking if file exists:", fileCheckError);
-                                } else {
-                                    console.log("Files in directory:", fileExists);
-                                }
 
                                 // Try to get the public URL
                                 const { data, error: urlError } = await supabase.storage
@@ -303,7 +253,6 @@ export default function StudentDashboard() {
         fetchStudentData();
     }, []);
 
-// Also update the handleSubmit function to set the CV path after upload
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
@@ -330,7 +279,6 @@ export default function StudentDashboard() {
             // Handle CV file upload if a new file is selected
             if (cvFile) {
                 const fileName = `${userId}_${Date.now()}_${cvFile.name}`;
-                // Make sure this path structure matches what you expect in the database
                 const filePath = `${userId}/${fileName}`;
 
                 console.log("Uploading file to path:", filePath);
@@ -389,24 +337,13 @@ export default function StudentDashboard() {
                         }
                     }
 
-                    // Get the public URL for the CV file - IMPROVED: Use the correct response structure
+                    // Get the public URL for the CV file
                     try {
                         console.log("Attempting to get public URL for:", filePath);
 
-                        // First, check if the file exists
-                        const { data: fileExists, error: fileCheckError } = await supabase.storage
-                            .from('cvs')
-                            .list(filePath.split('/')[0]); // List files in the user's folder
-
-                        if (fileCheckError) {
-                            console.error("Error checking if file exists:", fileCheckError);
-                        } else {
-                            console.log("Files in directory:", fileExists);
-                        }
-
                         // Try to get the public URL
                         const { data, error: urlError } = await supabase.storage
-                            .from('cvs')  // Make sure this matches exactly with your bucket name
+                            .from('cvs')
                             .getPublicUrl(filePath);
 
                         if (urlError) {
