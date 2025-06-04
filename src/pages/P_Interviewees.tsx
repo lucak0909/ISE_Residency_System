@@ -42,10 +42,10 @@ export default function P_Interviewees() {
                         .in('StudentID', studentIDs);
 
                     if (students && students.length > 0) {
-                        // Then, get user data for these students
+                        // Then, get user data for these students (including email)
                         const {data: usersData} = await supabase
                             .from('User')
-                            .select('ID, FirstName, Surname')
+                            .select('ID, FirstName, Surname, Email')
                             .in('ID', studentIDs);
 
                         // Combine the data
@@ -55,6 +55,7 @@ export default function P_Interviewees() {
                                 ...student,
                                 FirstName: userData?.FirstName || 'Unknown',
                                 Surname: userData?.Surname || 'Student',
+                                Email: userData?.Email || 'No email available',
                                 displayName: userData ? `${userData.FirstName} ${userData.Surname}` : `Student ${student.StudentID}`
                             };
                         });
@@ -135,18 +136,38 @@ export default function P_Interviewees() {
                                 {interviewees.map((student) => (
                                     <li key={student.StudentID} className="rounded-lg border border-white/30 p-6">
                                         <h3 className="text-xl font-bold text-indigo-400">{student.displayName}</h3>
-                                        <p className="text-sm text-slate-300">QCA: {student.QCA}</p>
-                                        <p className="text-sm text-slate-300">Year of Study: {student.YearOfStudy}</p>
-                                        <p className="text-sm text-slate-300">GitHub: <a href={student.GitHub}
-                                                                                         target="_blank"
-                                                                                         rel="noopener noreferrer"
-                                                                                         className="text-indigo-400 hover:underline">{student.GitHub}</a>
-                                        </p>
-                                        <p className="text-sm text-slate-300">LinkedIn: <a href={student.LinkedIn}
-                                                                                           target="_blank"
-                                                                                           rel="noopener noreferrer"
-                                                                                           className="text-indigo-400 hover:underline">{student.LinkedIn}</a>
-                                        </p>
+                                        <div className="mt-2 space-y-1">
+                                            <p className="text-sm text-slate-300">
+                                                <span className="font-medium">Email:</span>{" "}
+                                                <a href={`mailto:${student.Email}`} className="text-indigo-400 hover:underline">
+                                                    {student.Email}
+                                                </a>
+                                            </p>
+                                            <p className="text-sm text-slate-300">
+                                                <span className="font-medium">QCA:</span> {student.QCA}
+                                            </p>
+                                            <p className="text-sm text-slate-300">
+                                                <span className="font-medium">Year of Study:</span> {student.YearOfStudy}
+                                            </p>
+                                            {student.GitHub && (
+                                                <p className="text-sm text-slate-300">
+                                                    <span className="font-medium">GitHub:</span>{" "}
+                                                    <a href={student.GitHub} target="_blank" rel="noopener noreferrer" 
+                                                       className="text-indigo-400 hover:underline">
+                                                        {student.GitHub.replace(/^https?:\/\/(www\.)?github\.com\//, '')}
+                                                    </a>
+                                                </p>
+                                            )}
+                                            {student.LinkedIn && (
+                                                <p className="text-sm text-slate-300">
+                                                    <span className="font-medium">LinkedIn:</span>{" "}
+                                                    <a href={student.LinkedIn} target="_blank" rel="noopener noreferrer"
+                                                       className="text-indigo-400 hover:underline">
+                                                        {student.LinkedIn.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//, '')}
+                                                    </a>
+                                                </p>
+                                            )}
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
@@ -166,5 +187,6 @@ interface Student {
     YearOfStudy: string | null;
     FirstName?: string;
     Surname?: string;
+    Email?: string;
     displayName?: string;
 }
