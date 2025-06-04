@@ -8,7 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 // Import userEvent for simulating user interactions
 import userEvent from '@testing-library/user-event'
 // Component that is under the test
-import App from '../pages/App'
+import App from '../pages/AuthPage.tsx'
 
 // Defining the test suite
 describe('App Component', () => {
