@@ -409,34 +409,35 @@ export default function StudentRanking1() {
                         <section
                             onDragOver={allowDrop}
                             onDrop={dropToRanking}
-                            className="flex w-full flex-col rounded-xl border border-slate-500/60 bg-slate-800/25 p-10"
+                            className="flex h-full min-h-[400px] flex-col rounded-xl border border-slate-500/60 bg-slate-800/25 p-6"
                         >
-                            <h2 className="mb-8 text-3xl font-semibold tracking-wide">Your Ranking</h2>
-
-                            {ranking.length === 0 ? (
-                                <p className="text-lg italic text-slate-400">Drag companies here</p>
-                            ) : (
-                                <ol className="space-y-3 text-lg">
-                                    {ranking.map((company, i) => (
-                                        <li
+                            <h2 className="mb-6 text-2xl font-semibold">Your Ranking</h2>
+                            <div className="flex-1 space-y-3 mb-8"> {/* Added mb-8 for more space */}
+                                {ranking.length === 0 ? (
+                                    <p className="text-slate-400">Drag companies here to rank them.</p>
+                                ) : (
+                                    ranking.map((company, index) => (
+                                        <div
                                             key={company.id}
                                             draggable
                                             onDragStart={(e) => dragData(e, company)}
                                             onDragOver={allowDrop}
                                             onDrop={() => handleReorder(company)}
-                                            className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70 flex justify-between items-center"
+                                            className="flex cursor-grab items-center justify-between rounded-md border border-slate-600 bg-slate-800 p-4 hover:border-slate-400"
                                         >
-                                            <span>{i + 1}. {company.name}</span>
-                                            <span className="text-sm font-semibold text-indigo-300 ml-2">{company.residencyPeriod}</span>
-                                        </li>
-                                    ))}
-                                </ol>
-                            )}
+                                            <span>{index + 1}. {company.name}</span>
+                                            <span className="rounded-full bg-indigo-500/20 px-3 py-1 text-sm text-indigo-300">
+                                                {company.residencyPeriod}
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
 
                             <button
                                 onClick={submit}
                                 disabled={ranking.length === 0 || submitting}
-                                className="mt-4 mt-auto w-full rounded-md bg-indigo-600 px-5 py-3 text-lg font-semibold hover:bg-indigo-500 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                className="mt-auto w-full rounded-md bg-indigo-600 px-4 py-3 font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {submitting ? "Submitting..." : "Submit Ranking"}
                             </button>

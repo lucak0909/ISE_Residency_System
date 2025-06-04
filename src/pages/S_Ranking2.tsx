@@ -22,77 +22,77 @@ export default function StudentRanking2() {
         async function fetchAllocatedCompanies() {
             try {
                 setLoading(true);
-                
+
                 // 1. Get current user's email
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user?.email) {
                     console.error("No authenticated user found");
                     return;
                 }
-                
+
                 // 2. Get student ID from User table
                 const { data: userData, error: userError } = await supabase
                     .from('User')
                     .select('ID')
                     .eq('Email', user.email.toLowerCase())
                     .maybeSingle();
-                
+
                 if (userError || !userData) {
                     console.error("Error fetching user data:", userError);
                     return;
                 }
-                
+
                 setStudentID(userData.ID);
-                
+
                 // 3. Get allocated companies from InterviewAllocated table
                 const { data: allocations, error: allocError } = await supabase
                     .from('InterviewAllocated')
                     .select('CompanyID')
                     .eq('StudentID', userData.ID);
-                
+
                 if (allocError || !allocations) {
                     console.error("Error fetching allocations:", allocError);
                     return;
                 }
-                
+
                 if (allocations.length === 0) {
                     console.log("No allocated companies found for this student");
                     setLoading(false);
                     return;
                 }
-                
+
                 // 4. Get company details for each allocation
                 const companyIDs = allocations.map(a => a.CompanyID);
                 const { data: companies, error: compError } = await supabase
                     .from('Company')
                     .select('CompanyID, CompanyName')
                     .in('CompanyID', companyIDs);
-                
+
                 if (compError || !companies) {
                     console.error("Error fetching company details:", compError);
                     return;
                 }
-                
+
                 // 5. Check if student has already submitted rankings
                 const { data: existingRankings, error: rankError } = await supabase
                     .from('StudentInterviewRank')
                     .select('CompanyID, Rank')
                     .eq('StudentID', userData.ID)
                     .order('Rank');
-                
+
                 if (rankError) {
                     console.error("Error checking existing rankings:", rankError);
                 } else if (existingRankings && existingRankings.length > 0) {
                     // If rankings exist, load them
                     setSubmitted(true);
-                    
+
                     // Map company IDs to full company objects
                     const rankedCompanies = existingRankings
                         .map(rank => companies.find(c => c.CompanyID === rank.CompanyID))
                         .filter(Boolean) as Company[];
-                    
+
                     setRanking(rankedCompanies);
-                    
+
                     // Set available companies (those not in the ranking)
                     const rankedIDs = rankedCompanies.map(c => c.CompanyID);
                     setAvailable(companies.filter(c => !rankedIDs.includes(c.CompanyID)));
@@ -106,7 +106,7 @@ export default function StudentRanking2() {
                 setLoading(false);
             }
         }
-        
+
         fetchAllocatedCompanies();
     }, []);
 
@@ -122,16 +122,11 @@ export default function StudentRanking2() {
         try {
             const companyData = e.dataTransfer.getData("text/plain");
             if (!companyData) return;
-            
+
             const company = JSON.parse(companyData) as Company;
-            
-            // Check if company already exists in ranking list
             if (!company || ranking.some(c => c.CompanyID === company.CompanyID)) return;
 
-            // Remove from available list
             setAvailable((a) => a.filter((c) => c.CompanyID !== company.CompanyID));
-            
-            // Add to ranking list
             setRanking((r) => [...r, company]);
             setDragged(null);
         } catch (error) {
@@ -144,19 +139,13 @@ export default function StudentRanking2() {
         try {
             const companyData = e.dataTransfer.getData("text/plain");
             if (!companyData) return;
-            
+
             const company = JSON.parse(companyData) as Company;
             if (!company) return;
 
-            // Check if the company is in the ranking list before removing
-            if (!ranking.some(c => c.CompanyID === company.CompanyID)) return;
-            
-            // Remove from ranking list
             setRanking((r) => r.filter((c) => c.CompanyID !== company.CompanyID));
-            
-            // Add to available list if not already there
             if (!available.some(c => c.CompanyID === company.CompanyID)) {
-                setAvailable((a) => [...a, company].sort((a, b) => 
+                setAvailable((a) => [...a, company].sort((a, b) =>
                     a.CompanyName.localeCompare(b.CompanyName)
                 ));
             }
@@ -168,18 +157,9 @@ export default function StudentRanking2() {
 
     const handleReorder = (targetCompany: Company) => {
         if (!dragged || dragged.CompanyID === targetCompany.CompanyID) return;
-        
         setRanking((r) => {
-            // First check if dragged company is already in the list
-            if (!r.some(c => c.CompanyID === dragged.CompanyID)) return r;
-            
-            // Create a new array without the dragged company
             const next = r.filter((c) => c.CompanyID !== dragged.CompanyID);
-            
-            // Find the index of the target company
             const idx = next.findIndex(c => c.CompanyID === targetCompany.CompanyID);
-            
-            // Insert the dragged company at that index
             next.splice(idx, 0, dragged);
             return next;
         });
@@ -188,7 +168,7 @@ export default function StudentRanking2() {
 
     const submit = async () => {
         if (!studentID || ranking.length === 0) return;
-        
+
         try {
             setSubmitting(true);
             // First, delete any existing rankings for this student
@@ -196,18 +176,18 @@ export default function StudentRanking2() {
                 .from('StudentInterviewRank')
                 .delete()
                 .eq('StudentID', studentID);
-            
+
             // Then insert the new rankings
             const rankingData = ranking.map((company, index) => ({
                 StudentID: studentID,
                 CompanyID: company.CompanyID,
                 Rank: index + 1
             }));
-            
+
             const { error } = await supabase
                 .from('StudentInterviewRank')
                 .insert(rankingData);
-                
+
             if (error) {
                 console.error("Error submitting rankings:", error);
                 alert("Failed to submit rankings. Please try again.");
@@ -308,7 +288,7 @@ export default function StudentRanking2() {
                                     {ranking.length === 0 ? (
                                         <p className="text-lg italic text-slate-400">Drag companies here</p>
                                     ) : (
-                                        <ol className="space-y-3 text-lg">
+                                        <ol className="space-y-6 text-lg">
                                             {ranking.map((company, i) => (
                                                 <li
                                                     key={company.CompanyID}
@@ -316,9 +296,14 @@ export default function StudentRanking2() {
                                                     onDragStart={(e) => dragData(e, company)}
                                                     onDragOver={allowDrop}
                                                     onDrop={() => handleReorder(company)}
-                                                    className="cursor-grab rounded-md border border-white/40 px-5 py-2 hover:border-white/60 active:opacity-70"
+                                                    className="cursor-grab rounded-md border border-white/40 px-5 py-4 hover:border-white/60 active:opacity-70 bg-slate-800 shadow-lg"
                                                 >
-                                                    {i + 1}. {company.CompanyName}
+                                                    <div className="flex items-center">
+                                                        <span className="text-xl font-semibold">{i + 1}. {company.CompanyName}</span>
+                                                        <span className="ml-auto text-sm font-medium bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full">
+                                                            R1+R2
+                                                        </span>
+                                                    </div>
                                                 </li>
                                             ))}
                                         </ol>
@@ -327,7 +312,7 @@ export default function StudentRanking2() {
                                     <button
                                         onClick={submit}
                                         disabled={ranking.length === 0 || submitting || submitted}
-                                        className="mt-4 mt-auto w-full rounded-md bg-indigo-600 px-5 py-3 text-lg font-semibold hover:bg-indigo-500 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                        className="mt-8 w-full rounded-md bg-indigo-600 px-5 py-3 text-lg font-semibold hover:bg-indigo-500 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                     >
                                         {submitting ? "Submitting..." : submitted ? "Submitted" : "Submit Ranking"}
                                     </button>
