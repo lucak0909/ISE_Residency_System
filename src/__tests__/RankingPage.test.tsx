@@ -6,7 +6,7 @@ import { render, screen } from '@testing-library/react'
 // Import MemoryRouter to simulate routing
 import { MemoryRouter } from 'react-router-dom'
 // Component that is under the test
-import P_Ranking from '../pages/App' //
+import P_Ranking from '../pages/AuthPage.tsx' //
 
 describe('App Component', () => {
     it('renders the login page with sign-in text', () => {
