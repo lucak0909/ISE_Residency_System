@@ -134,7 +134,7 @@ function JobsBoard() {
                                         </span>
                                         <span className="text-sm font-semibold text-slate-400">{job.company}</span>
                                     </div>
-                                    <h3 className="text-xl font-semibold mb-2">{job.title}</h3>
+                                    <h3 className="text-xl font-bold mb-3">{job.title}</h3>
                                     <ul className="text-sm text-slate-300 space-y-1">
                                         <li><strong className="text-white">Email:</strong> {job.email}</li>
                                         <li><strong className="text-white">Residency Title:</strong> {job.residency}</li>
