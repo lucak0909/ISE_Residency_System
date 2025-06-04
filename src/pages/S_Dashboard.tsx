@@ -1,6 +1,79 @@
 import { useState, useEffect } from "react";
 import { NavLink } from 'react-router-dom';
 import { supabase } from "../helper/supabaseClient";
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
+
+// Set up the worker for PDF.js using a local worker
+// This avoids CORS issues with CDN-hosted workers
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.js',
+  import.meta.url,
+).toString();
+
+async function ensureBucketExists() {
+    try {
+        // Check if bucket exists
+        const { data: buckets } = await supabase.storage.listBuckets();
+        const bucketExists = buckets?.some(bucket => bucket.name === 'cvs');
+
+        if (!bucketExists) {
+            console.log("Bucket 'cvs' doesn't exist, creating it...");
+            // Create the bucket with public access
+            const { data, error } = await supabase.storage.createBucket('cvs', {
+                public: true  // Make bucket public
+            });
+
+            if (error) {
+                console.error("Error creating bucket:", error);
+            } else {
+                console.log("Bucket created successfully:", data);
+            }
+        } else {
+            console.log("Bucket 'cvs' already exists");
+        }
+    } catch (error) {
+        console.error("Error checking/creating bucket:", error);
+    }
+}
+
+async function verifyBucketAccess() {
+    try {
+        // List all buckets to verify access
+        const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+
+        if (bucketsError) {
+            console.error("Error listing buckets:", bucketsError);
+            return false;
+        }
+
+        console.log("Available buckets:", buckets.map(b => b.name));
+
+        // Check if our bucket exists
+        const cvsBucket = buckets.find(b => b.name === 'cvs');
+        if (!cvsBucket) {
+            console.error("Bucket 'cvs' not found in available buckets");
+            return false;
+        }
+
+        // Try to list files in the bucket root to verify permissions
+        const { data: files, error: listError } = await supabase.storage
+            .from('cvs')
+            .list();
+
+        if (listError) {
+            console.error("Error listing files in 'cvs' bucket:", listError);
+            return false;
+        }
+
+        console.log("Access to 'cvs' bucket verified, files at root:", files);
+        return true;
+    } catch (error) {
+        console.error("Error verifying bucket access:", error);
+        return false;
+    }
+}
 
 function FinalMatchDisplay() {
     const [matchedCompany, setMatchedCompany] = useState<{
@@ -88,7 +161,7 @@ export default function StudentDashboard() {
     const [linkedin, setLinkedin] = useState("");
     const [github, setGithub] = useState("");
     const [qca, setQca] = useState<number | null>(null);
-    const [yearOfStudy, setYearOfStudy] = useState<string>("");
+    const [yearOfStudy, setYearOfStudy] = useState("");
     const [loading, setLoading] = useState(true);
     const [userId, setUserId] = useState<number | null>(null);
     const [uploadingCV, setUploadingCV] = useState(false);
@@ -128,10 +201,18 @@ export default function StudentDashboard() {
             try {
                 setLoading(true);
 
-                const { data: { user } } = await supabase.auth.getUser();
+                // Verify bucket access
+                const bucketAccessible = await verifyBucketAccess();
+                if (!bucketAccessible) {
+                    console.error("Cannot access the 'cvs' bucket - check permissions");
+                }
+
+                // Get the current user
+                const {data: {user}} = await supabase.auth.getUser();
 
                 if (user) {
-                    const { data: userData, error: userError } = await supabase
+                    // First get the user's ID from the User table
+                    const {data: userData, error: userError} = await supabase
                         .from('User')
                         .select('ID')
                         .eq('Email', user.email)
@@ -178,13 +259,36 @@ export default function StudentDashboard() {
                             const fileName = pathParts[pathParts.length - 1];
                             setCurrentCVName(fileName);
 
-                            // Get the public URL for the CV file
-                            const { data: publicURL } = await supabase.storage
-                                .from('cvs')
-                                .getPublicUrl(cvData.FilePath);
+                            // Get the public URL for the CV file - IMPROVED VERSION
+                            try {
+                                console.log("Attempting to get public URL for:", cvData.FilePath);
 
-                            if (publicURL) {
-                                setCurrentCVPath(publicURL.publicUrl);
+                                // First, check if the file exists
+                                const { data: fileExists, error: fileCheckError } = await supabase.storage
+                                    .from('cvs')
+                                    .list(cvData.FilePath.split('/')[0]); // List files in the user's folder
+
+                                if (fileCheckError) {
+                                    console.error("Error checking if file exists:", fileCheckError);
+                                } else {
+                                    console.log("Files in directory:", fileExists);
+                                }
+
+                                // Try to get the public URL
+                                const { data, error: urlError } = await supabase.storage
+                                    .from('cvs')
+                                    .getPublicUrl(cvData.FilePath);
+
+                                if (urlError) {
+                                    console.error("Error getting public URL:", urlError);
+                                } else if (data && data.publicUrl) {
+                                    console.log("CV URL successfully retrieved:", data.publicUrl);
+                                    setCurrentCVPath(data.publicUrl);
+                                } else {
+                                    console.log("Failed to get public URL - no data returned");
+                                }
+                            } catch (error) {
+                                console.error("Exception getting public URL:", error);
                             }
                         }
                     }
@@ -225,76 +329,115 @@ export default function StudentDashboard() {
 
             // Handle CV file upload if a new file is selected
             if (cvFile) {
-                // 1. Upload file to storage bucket
                 const fileName = `${userId}_${Date.now()}_${cvFile.name}`;
+                // Make sure this path structure matches what you expect in the database
                 const filePath = `${userId}/${fileName}`;
+
+                console.log("Uploading file to path:", filePath);
 
                 const { error: uploadError } = await supabase.storage
                     .from('cvs')
                     .upload(filePath, cvFile);
 
-                if (uploadError) throw uploadError;
-
-                // 2. Check if a CV record already exists for this student
-                const { data: existingCV, error: checkError } = await supabase
-                    .from('StudentCV')
-                    .select('*')
-                    .eq('StudentID', userId)
-                    .maybeSingle();
-
-                if (checkError) {
-                    console.error('Error checking existing CV:', checkError);
-                    throw checkError;
+                if (uploadError) {
+                    console.error("Upload error:", uploadError);
+                    throw uploadError;
                 }
 
-                // 3. Update or insert the CV record
-                let cvError;
-                if (existingCV) {
-                    // Update existing record
-                    const { error } = await supabase
+                try {
+                    // First, check if a CV record already exists for this student
+                    const { data: existingCV, error: checkError } = await supabase
                         .from('StudentCV')
-                        .update({
-                            FilePath: filePath,
-                            DateUploaded: new Date().toISOString()
-                        })
-                        .eq('StudentID', userId);
-                    cvError = error;
-                } else {
-                    // Insert new record
-                    const { error } = await supabase
-                        .from('StudentCV')
-                        .insert({
-                            CVID: userId,
-                            FilePath: filePath,
-                            StudentID: userId,
-                            DateUploaded: new Date().toISOString()
-                        });
-                    cvError = error;
-                }
+                        .select('CVID')
+                        .eq('StudentID', userId)
+                        .maybeSingle();
 
-                if (cvError) {
-                    console.error('CV record operation error:', cvError);
+                    if (checkError) {
+                        console.error('Error checking existing CV:', checkError);
+                    }
 
-                    // If operation fails, try to delete the uploaded file to avoid orphaned files
+                    // If a record exists, update it using the CVID as the primary key
+                    if (existingCV) {
+                        const { error: updateError } = await supabase
+                            .from('StudentCV')
+                            .update({
+                                FilePath: filePath,
+                                DateUploaded: new Date().toISOString()
+                            })
+                            .eq('CVID', existingCV.CVID);
+
+                        if (updateError) {
+                            console.error('Error updating CV record:', updateError);
+                            throw updateError;
+                        }
+                    } else {
+                        // If no record exists, insert a new one
+                        const newCVID = Date.now();
+
+                        const { error: insertError } = await supabase
+                            .from('StudentCV')
+                            .insert({
+                                CVID: newCVID,
+                                FilePath: filePath,
+                                StudentID: userId,
+                                DateUploaded: new Date().toISOString()
+                            });
+
+                        if (insertError) {
+                            console.error('Error inserting CV record:', insertError);
+                            throw insertError;
+                        }
+                    }
+
+                    // Get the public URL for the CV file - IMPROVED: Use the correct response structure
+                    try {
+                        console.log("Attempting to get public URL for:", filePath);
+
+                        // First, check if the file exists
+                        const { data: fileExists, error: fileCheckError } = await supabase.storage
+                            .from('cvs')
+                            .list(filePath.split('/')[0]); // List files in the user's folder
+
+                        if (fileCheckError) {
+                            console.error("Error checking if file exists:", fileCheckError);
+                        } else {
+                            console.log("Files in directory:", fileExists);
+                        }
+
+                        // Try to get the public URL
+                        const { data, error: urlError } = await supabase.storage
+                            .from('cvs')  // Make sure this matches exactly with your bucket name
+                            .getPublicUrl(filePath);
+
+                        if (urlError) {
+                            console.error("Error getting public URL:", urlError);
+                        } else if (data && data.publicUrl) {
+                            setCurrentCVPath(data.publicUrl);
+                            console.log("New CV URL:", data.publicUrl); // Debug log
+
+                            // Update the displayed CV name
+                            setCurrentCVName(fileName);
+                            setCvFile(null);
+                        } else {
+                            console.error("Failed to get public URL");
+                            throw new Error("Failed to get public URL for uploaded file");
+                        }
+                    } catch (error) {
+                        // If database operation fails, delete the uploaded file to avoid orphaned files
+                        await supabase.storage
+                            .from('cvs')
+                            .remove([filePath]);
+
+                        throw error;
+                    }
+                } catch (error) {
+                    // If database operation fails, delete the uploaded file to avoid orphaned files
                     await supabase.storage
                         .from('cvs')
                         .remove([filePath]);
 
-                    throw new Error(`Failed to update CV record: ${cvError.message}`);
+                    throw error;
                 }
-
-                // Get the public URL for the CV file
-                const { data: publicURL } = await supabase.storage
-                    .from('cvs')
-                    .getPublicUrl(filePath);
-
-                if (publicURL) {
-                    setCurrentCVPath(publicURL.publicUrl);
-                }
-
-                // Update the displayed CV name
-                setCurrentCVName(fileName);
-                setCvFile(null);
             }
 
             alert("Profile updated successfully!");
@@ -335,12 +478,9 @@ export default function StudentDashboard() {
                         Post-Interview Ranking
                     </NavLink>
 
-                    <div className="mt-auto pt-6 flex flex-col items-center">
-                        <span className="mb-1.5 text-xs text-green-800">Signed in as {userName}</span>
-                        <NavLink
-                            to="/login"
-                            className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600"
-                        >
+                    <div className="mt-auto pt-6">
+                        <NavLink to="/login"
+                                 className="block w-full rounded-md bg-red-600/80 px-3 py-2 text-center font-medium hover:bg-red-600">
                             Log Out
                         </NavLink>
                     </div>
@@ -397,7 +537,7 @@ export default function StudentDashboard() {
                             </select>
                         </div>
 
-                        {/* CV upload */}
+                        {/* CV upload and view button */}
                         <div className="flex flex-col gap-2">
                             <label className="font-medium" htmlFor="cv">
                                 Upload CV (PDF)
@@ -409,16 +549,37 @@ export default function StudentDashboard() {
                                 onChange={(e) => setCvFile(e.target.files?.[0] ?? null)}
                                 className="cursor-pointer rounded-md border border-white/30 bg-slate-700/40 p-2 file:mr-4 file:rounded-md file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-white"
                             />
-                            {currentCVPath && (
-                                <div className="mt-2 text-sm text-green-400">
-                                    Current CV: <a href={currentCVPath} target="_blank" rel="noopener noreferrer" className="underline">View CV</a>
-                                </div>
-                            )}
                             {uploadingCV && (
                                 <div className="mt-2 text-sm text-indigo-400">
                                     Uploading CV...
                                 </div>
                             )}
+
+                            {/* CV View Button */}
+                            <div className="mt-4">
+                                <h3 className="mb-2 font-medium">Your Current CV</h3>
+                                {currentCVPath ? (
+                                    <div className="flex flex-col gap-2">
+                                        <p className="text-sm text-slate-300">
+                                            {currentCVName || "CV uploaded"}
+                                        </p>
+                                        <a
+                                            href={currentCVPath}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
+                                                <path d="M8 11a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1zm0-3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                                            </svg>
+                                            View CV
+                                        </a>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-slate-400">No CV uploaded yet.</p>
+                                )}
+                            </div>
                         </div>
 
                         {/* LinkedIn */}
