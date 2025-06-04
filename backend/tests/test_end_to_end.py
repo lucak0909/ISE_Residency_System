@@ -1,10 +1,29 @@
 import unittest
-from backend import position_allocation, interview_allocation
+from unittest.mock import patch
+from backend import interview_allocation, position_allocation
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path=os.getenv("ENV_FILE"))
+
 
 class TestEndToEnd(unittest.TestCase):
-    def test_allocation_chain(self):
-        # Assuming dummy Supabase or mocks
-        self.assertTrue(True)  # Replace with real flow when not using dummy key
+    @patch("backend.interview_allocation.supabase")
+    def test_allocation_chain(self, mock_supabase):
+#       Mock the student list returned by Supabase
+        mock_supabase.table().select().order().execute.return_value.data = [
+            {"StudentID": "24478910", "QCA": 4.0},
+            {"StudentID": "22156084", "QCA": 3.5}
+        ]
+
+#        Run dummy position allocation logic if available
+#       (Replace with actual function name)
+        matches = position_allocation.run_final_match()
+
+#       Validate allocation results
+        self.assertIsInstance(matches, list)
+        print("End-to-end allocation chain test passed")
 
 if __name__ == "__main__":
     unittest.main()
