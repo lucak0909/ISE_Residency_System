@@ -1,3 +1,7 @@
+/*
+Frontend Unit Test
+Test to check that the login screen/window does load or render in
+ */
 /// <reference types="vitest/globals" />
 // import test functions
 import { describe, it, expect} from "vitest"

@@ -1,3 +1,9 @@
+'''
+Backend Unit Test
+Test to confirm that the position allocation is working via metrics like QCA
+using patch to mock external dependeices such as Supabase
+'''
+
 # Python's built in unit testing
 import unittest
 from unittest.mock import patch
@@ -24,7 +30,10 @@ class TestPositionAllocation(unittest.TestCase):
         self.assertEqual(students[0]["QCA"], 3.8)
 
 #       Comfirmation that test worked
+        print("")
+        print("-----------------")
         print("Supabase student allocation logic passed")
+        print("-----------------")
 
 #Run test when the script is excuted directly
 if __name__ == "__main__":

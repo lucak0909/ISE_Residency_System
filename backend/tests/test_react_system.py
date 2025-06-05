@@ -1,3 +1,10 @@
+'''
+Frontend and Backend Intergration/System Test with Smoke Testing
+A simple run through of all systems within the project file
+Checking from Students to Companies that every ranking page to text input box is working
+Runs through the actaul Supabase Database instead of the mocking up one due to this being the "big test"
+'''
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -9,42 +16,53 @@ import time
 import os
 from dotenv import load_dotenv
 
+# Loads enviroment variables
 load_dotenv(dotenv_path=os.getenv("ENV_FILE"))
 
 # Setup Chrome WebDriver
 options = webdriver.ChromeOptions()
-options.add_argument('--headless')  # optional for Jenkins
+options.add_argument('--headless')
 options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
 driver = webdriver.Chrome(options=options)
 driver.set_window_size(1920, 1080)
 
+# Sets up and waits for actions on the page
 wait = WebDriverWait(driver, 10)
 actions = ActionChains(driver)
 
+# Login Fucntion
 def log_in(email, password):
     driver.get("http://localhost:5173/Login")
     time.sleep(5)
     print("Login Attempt")
+
+#   Enters email, password and click login
     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="email"]'))).send_keys(email)
     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="password"]'))).send_keys(password)
     wait.until(EC.element_to_be_clickable((By.XPATH, "//button[text()='Log in']"))).click()
     time.sleep(2)
 
     try:
-        #           When the alert of the wrong email or password pops up
+#       When the alert of the wrong email or password pops up
         alert = driver.switch_to.alert
         print("ALERT FOUND: ", alert.text)
         alert.accept()
+        print("-----------------")
         print("Alert dismissed and login failed")
+        print("-----------------")
     except:
-        # No alert should allow us to assume a successful login for this test
+#       No alert should allow us to assume a successful login for this test
+        print("-----------------")
         print("Login successful")
+        print("-----------------")
 
+#  Company Dashboard Function
 def test_company_dashboard():
     print("Moving to Interviewee Ranking Page")
     wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Interviewee Ranking"))).click()
     time.sleep(1)
+
     # Drag and drop test
     print("Dragging Student and dropping them in the Ranking Box")
     source = wait.until(EC.presence_of_element_located((By.XPATH, "//li[text()='Student 1']")))
@@ -52,10 +70,12 @@ def test_company_dashboard():
     actions.drag_and_drop(source, target).perform()
     print("Successful Dragged and Dropped Student")
     time.sleep(1)
+
     # Navigate back to job listing form
     print("Returning to the Partner Dashboard/Job Creation Page")
     wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Partner Dashboard"))).click()
     time.sleep(1)
+
     # Fill in sample job form
     print("Testing to see if text can be put into the text box inputs")
     fields = driver.find_elements(By.CSS_SELECTOR, "input, textarea")
@@ -69,10 +89,13 @@ def test_company_dashboard():
         except Exception as e:
             print("Error entering text in the text box: ", e)
 
+# Student Dashboard Fucntion
 def test_student_dashboard():
+#   Checks if QCA is displaying on the screen
     print("Checking if QCA is displaying")
     wait.until(EC.presence_of_element_located((By.XPATH, "//h2[text()='Your QCA']")))
     print("QCA is displaying")
+
     # Pre-interview ranking
     print("Moving to the Initial Ranking Page")
     wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Initial Ranking"))).click()
@@ -83,6 +106,7 @@ def test_student_dashboard():
     actions.drag_and_drop(company, rank_box).perform()
     print("Successful Dragged and Dropped Company Position")
     time.sleep(1)
+
     # Post-interview ranking
     print("Moving to the Post-Interview Ranking Page")
     wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Post-Interview Ranking"))).click()
@@ -94,15 +118,18 @@ def test_student_dashboard():
     print("Successful Dragged and Dropped Company Position")
     time.sleep(1)
 
+# Logout Fucntion
 def log_out():
     print("Logging Out of Account")
     wait.until(EC.element_to_be_clickable((By.XPATH, "//a[text()='Log Out']"))).click()
     time.sleep(2)
 
+# Test Run Function Section
 try:
     print("-----------------")
     print("Company Account")
     print("-----------------")
+
     # Step 1: Invalid login
     print("Invalid Login Attempt - Wrong Email & Password")
     log_in("colinv@tester.com", "ItDepends")
@@ -150,5 +177,7 @@ try:
     print("-----------------")
     print("Test Ended")
     print("-----------------")
+
 finally:
+#   Closes the window after test completetion
     driver.quit()
